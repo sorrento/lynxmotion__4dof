@@ -1,18 +1,27 @@
-def get_status(myLSS):
-    # Get the values from LSS
-    print("\r\nQuerying LSS...")
+import pandas as pd
+
+
+def get_status(myLSS, name="Telemetry", imprime=True):
     pos = myLSS.getPosition()
     rpm = myLSS.getSpeedRPM()
     curr = myLSS.getCurrent()
     volt = myLSS.getVoltage()
     temp = myLSS.getTemperature()
-    # Display the values in terminal
-    print("\r\n---- Telemetry ----")
-    print("Position  (1/10 deg) = " + str(pos))
-    print("Speed          (rpm) = " + str(rpm))
-    print("Curent          (mA) = " + str(curr))
-    print("Voltage         (mV) = " + str(volt))
-    print("Temperature (1/10 C) = " + str(temp))
+
+    if imprime:
+        print("\nQuerying LSS... ", name)
+        print("\r\n---- %s ----" % name)
+        print("Position  (1/10 deg) = " + str(pos))
+        print("Speed          (rpm) = " + str(rpm))
+        print("Curent          (mA) = " + str(curr))
+        print("Voltage         (mV) = " + str(volt))
+        print("Temperature (1/10 C) = " + str(temp))
+
+    df = pd.DataFrame({'name': [name], 'pos': [pos], 'rpm': [rpm],
+                       'curr': [curr], 'volt': [volt], 'temp': [temp]}).set_index('name')
+    dic = df.to_dict(orient='index')
+
+    return df, dic
 
 
 def update_position(di):
