@@ -27,7 +27,7 @@ myLSS_Output = lss.LSS(0)
 myLSS_Input = lss.LSS(1)
 
 # Initialize LSS output to position 0.0
-myLSS_Output.move(0)
+myLSS_Output.moveTo(0)
 
 # Wait for it to get there
 time.sleep(2)
@@ -55,6 +55,6 @@ while 1:
 		if ((pos < (lastPos - 2)) or (pos > (lastPos + 2))):
 			# Send position to output servo and terminal
 			print("Input @ " + str(pos))
-			myLSS_Output.move(pos)
+			myLSS_Output.moveTo(pos)
 
 ### EOF #######################################################################

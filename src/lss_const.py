@@ -8,6 +8,9 @@
 #					Uses the Python serial library (pySerial).
 ###############################################################################
 
+# Meaning of constants
+# https://wiki.lynxmotion.com/info/wiki/lynxmotion/view/lynxmotion-smart-servo/lss-communication-protocol/
+
 ### List of constants
 
 # Bus communication

@@ -26,7 +26,7 @@ lss.initBus(CST_LSS_Port, CST_LSS_Baud)
 myLSS = lss.LSS(0)
 
 # Initialize LSS to position 0.0 deg
-myLSS.move(0)
+myLSS.moveTo(0)
 
 # Wait for it to get there
 time.sleep(2)
@@ -34,13 +34,13 @@ time.sleep(2)
 # Loops between -180.0 deg and 180 deg, taking 1 second pause between each half-circle move.
 while 1:
 	# Send LSS to half a turn counter-clockwise from zero (assumes gyre = 1)
-	myLSS.move(-1800)
+	myLSS.moveTo(-1800)
 	
 	# Wait for two seconds
 	time.sleep(2)
 	
 	# Send LSS to half a turn clockwise from zero (assumes gyre = 1)
-	myLSS.move(1800)
+	myLSS.moveTo(1800)
 	
 	# Wait for two seconds
 	time.sleep(2)

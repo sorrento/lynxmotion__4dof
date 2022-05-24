@@ -138,10 +138,15 @@ class LSS:
     def hold(self):
         return genericWrite(self.servoID, lssc.LSS_ActionHold)
 
-    def move(self, pos):
+    def moveTo(self, pos):
+        """
+Mueve hasta la posicion pos: el 0 es el definido como offset
+        :param pos: en décimas de grado
+        :return:
+        """
         return genericWrite(self.servoID, lssc.LSS_ActionMove, pos)
 
-    def moveRelative(self, delta):
+    def move(self, delta):
         return genericWrite(self.servoID, lssc.LSS_ActionMoveRelative, delta)
 
     def wheel(self, speed):
