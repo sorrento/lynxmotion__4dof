@@ -5,7 +5,6 @@ from IPython.core.display import display
 
 import lss
 import lss_const
-
 from u_base import now, save_json, read_json, save_df
 
 
@@ -218,8 +217,8 @@ class Experimento:
 
     def run(self):
         for m in self.r_moves:
-            print(now(), ' doing ', m.name)
-            df2 = pd.DataFrame({'time': [now()], 'move': [m.name]})
+            print(now(True), ' doing ', m.name)
+            df2 = pd.DataFrame({'time': [now(True)], 'move': [m.name]})
             self.df = pd.concat([self.df, df2])
 
             m.run()
@@ -229,3 +228,26 @@ class Experimento:
         end = self.df.time.dt.strftime('%Y%m%d_%H%M%S').iloc[-1]
         name2 = name + '_' + ini + '__' + end
         save_df(self.df, 'data/', 'exp_' + name2, append_size=False)
+
+
+def make_query(t0, t1, average=False):
+    """
+Trae todos los campos para los tiempos UTC entre t0 y t1
+    :param t0: tienen que estar en este formato (UTC) 2022-05-25T10:00:00Z
+    :param t1:
+    :param average: si se pone TRUE se promediará cada segundo
+    :return:
+    """
+    q0 = """from(bucket: "samva")
+     |> range(start: %s, stop: %s)
+     |> filter(fn: (r) => r["_field"] == "f2" or r["_field"] == "f0" or r["_field"] == "f1" or r["_field"] == "a0" or r["_field"] == "a1" or r["_field"] == "a2" or r["_field"] == "g0" or r["_field"] == "g1" or r["_field"] == "g2" or r["_field"] == "c0" or r["_field"] == "c1" or r["_field"] == "c2") """ % (
+        t0, t1)
+
+    q1 = """|> aggregateWindow(every: 1s, fn: mean, createEmpty: false)
+      |> yield(name: "mean")"""
+
+    if average:
+        q0 = q0 + q1
+
+    print(q0)
+    return q0

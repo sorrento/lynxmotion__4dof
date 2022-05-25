@@ -1,5 +1,8 @@
 import time
 
+FORMAT_DATE = "%Y%m%d"
+FORMAT_DATETIME = '%Y-%m-%d %H:%M:%S.%f'
+
 
 def make_folder(path):
     import os
@@ -50,26 +53,32 @@ def read_json(json_file):
     return data
 
 
-def get_now():
-    ct = now()
+def get_now(utc=False):
+    ct = now(utc)
     # ts = ct.timestamp()
     # print("timestamp:-", ts)
 
     return str(ct)  # podríamos quedarnos con el objeton (sin str)
 
 
-def now():
-    import datetime
-    return datetime.datetime.now()
+def now(utc=False):
+    from datetime import timezone, datetime
+    if utc:
+        tz = timezone.utc
+    else:
+        tz = None
+
+    return datetime.now(tz)
 
 
-def get_now_format(f="%Y%m%d"):
+def get_now_format(f=FORMAT_DATE, utc=False):
     """
 
+    :param utc:
     :param f: ver https://pythonexamples.org/python-datetime-format/
     :return:
     """
-    ct = now()
+    ct = now(utc)
     return ct.strftime(f)
 
 

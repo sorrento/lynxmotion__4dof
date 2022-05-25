@@ -59,6 +59,8 @@ exp.run()
 
 exp.save(name='test')
 
+exp.df
+
 # # 8. Test de velocidades
 #
 # - Cogemos la información de velocidad el servo

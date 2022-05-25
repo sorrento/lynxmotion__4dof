@@ -46,7 +46,7 @@ def genericWrite(id, cmd, param=None, extra=None, verb=False):
         msg = msg + extra
     LSS.bus.write((msg + lssc.LSS_CommandEnd).encode())
     if verb:
-        print(now(), msg)
+        print(now(True), msg)
     return True
 
 
