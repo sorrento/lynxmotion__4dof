@@ -251,3 +251,16 @@ Trae todos los campos para los tiempos UTC entre t0 y t1
 
     print(q0)
     return q0
+
+
+def plot_one_var(dt, var):
+    import matplotlib.pyplot as plt
+
+    f = dt[dt._field == var]
+    plt.figure(figsize=(12, 10))
+
+    plt.xlabel("time(-2)")
+    plt.ylabel("g?")
+    plt.title(var)
+
+    plt.plot(f._time, f._value, lw=1)

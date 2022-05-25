@@ -2,7 +2,7 @@ import time
 
 FORMAT_DATE = "%Y%m%d"
 FORMAT_DATETIME = '%Y-%m-%d %H:%M:%S.%f'
-
+FORMAT_UTC = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 def make_folder(path):
     import os
