@@ -1,3 +1,4 @@
+import random
 import time
 import pandas as pd
 from IPython.core.display import display
@@ -5,7 +6,7 @@ from IPython.core.display import display
 import lss
 import lss_const
 
-from u_base import now, save_json
+from u_base import now, save_json, read_json, save_df
 
 
 def get_status(myLSS, name="Telemetry", imprime=True):
@@ -46,7 +47,7 @@ def update_position(di):
 def home(di):
     for k in di:
         di[k]['o'].moveTo(0)
-    time.sleep(2)  # para garantizar que se detiene
+    time.sleep(1.5)  # para garantizar que se detiene
     update_position(di)
 
 
@@ -57,7 +58,7 @@ def reset(di):
         di[k]['o'].reset()
 
 
-class pattern:
+class Pattern:
     def __init__(self, di, name='name'):
         self.moves = {}
         self.di = di
@@ -80,8 +81,8 @@ class pattern:
 
         return df_move
 
-    def _run(self, go_home=True):
-        if go_home:
+    def _run(self, start_home=True):
+        if start_home:
             home(self.di)
 
         delta = 0
@@ -103,10 +104,12 @@ class pattern:
 
             print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, row.vel, now()))
 
-    def run(self, n=1):
+    def run(self, n=1, end_home=True):
         for i in range(n):
             print('\n\n >>>>>>>>>>repeticion: {}/{}'.format(i + 1, n))
             self._run()
+        if end_home:
+            home(self.di)
 
     def create_random(self, n_moves=4, t_max=4):
         """
@@ -131,6 +134,12 @@ creación de movimientos random
     def save(self):
         save_json(self.moves, 'data/move_' + self.name)
 
+    def load(self, path):
+        self.name = path.split('/')[-1].split('.')[0].split('_')[-1]
+        print('Movimiento llamado: {}'.format(self.name))
+        self.moves = read_json(path)
+        display(self.get_df())
+
 
 def get_variables(di):
     status = pd.DataFrame()
@@ -154,11 +163,6 @@ def plot_time(vels, title):
 
     plt.plot(vels.t, vels["vel"], lw=1)
     # plt.plot(vels.time, vels["vel"])
-
-
-def test2():
-    global b
-    b = 3
 
 
 def init(CST_LSS_Port="COM5"):
@@ -196,3 +200,29 @@ def init(CST_LSS_Port="COM5"):
 
     home(di)
     return di, l_base, l_hombro, l_codo, l_muneca, l_mano
+
+
+def pat_from_file(di, file):
+    a = Pattern(di)
+    a.load(file)
+    return a
+
+
+class Experimento:
+    def __init__(self, di, n, *files):
+        moves = [pat_from_file(di, file) for file in files]
+        self.r_moves = random.choices(moves, k=n)
+        seq = [x.name for x in self.r_moves]
+        print(seq)
+        self.df = pd.DataFrame()
+
+    def run(self):
+        for m in self.r_moves:
+            print(now(), ' doing ', m.name)
+            df2 = pd.DataFrame({'time': [now()], 'move': [m.name]})
+            self.df = pd.concat([self.df, df2])
+
+            m.run()
+
+    def save(self, name):
+        save_df(self.df, 'data/', 'exp_' + name, append_size=False)

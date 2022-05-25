@@ -16,6 +16,7 @@ from math import sqrt, atan, acos, fabs
 ### Import constants
 import lss_const as lssc
 
+
 ### Class functions
 
 
@@ -25,6 +26,7 @@ def initBus(portName, portBaud):
         LSS.bus.timeout = 0.1
     except Exception as e:
         print(e)
+        print('Posiblemente el puerto estaba ya abierto')
 
 
 def closeBus():

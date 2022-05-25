@@ -20,7 +20,7 @@ import time
 import pandas as pd
 import lss
 from u_base import get_now_format
-from utils import home, pattern, get_variables, plot_time, init
+from utils import Pattern, get_variables, plot_time, init,  Experimento
 
 di, l_base, l_hombro, l_codo, l_muneca, l_mano = init()
 
@@ -30,11 +30,38 @@ get_variables(di)
 # l_mano.reset() # si se fuerza un servo, se bloquea (modo rojo parpadeante) y se debe resetear                       
 # -
 
-# # 2. Generar movimientos compuestos
+# # Creamos un patrón, es decir un movimiento compuesto
+
+pat = Pattern(di, name='test')
+pat.add('base', 0, -400, 100)
+pat.add('codo', 0.5, -400, 10)
+pat.add('codo', 2.9, -600, 100)
+display(pat.get_df())
+pat.run(3)
+pat.save()
+
+# Movimiento creado aleatoriamente
+pat_a = Pattern(di, 'A')
+pat_a.create_random(n_moves=6, t_max=4)
+pat_a.run(3)
+pat_a.save()
+
+pat_b = Pattern(di, 'B')
+pat_b.create_random(n_moves=4, t_max=4)
+pat_b.run(3)
+pat_b.save()
+
+# # Cargamos los movimientos y los combinamos en secuencias
+
+exp = Experimento(di, 4, 'data/move_A.json', 'data/move_B.json', 'data/move_C.json')
+
+exp.run()
+
+exp.save(name='test1')
+
+# # 8. Test de velocidades
 #
-# - controlar las velocidades
-# - controlar cuándo se realiza un movimiento (al solaparse)
-# - mover no sólo de manera relativa, sino absoluta (posición final)
+# - Cogemos la información de velocidad el servo
 
 
 # +
@@ -66,35 +93,6 @@ plot_time(vels, 'speed base, a 600')
 plot_time(vels, 'speed base, a 100')
 
 plot_time(vels, 'speed base, a 20')
-
-# # Creamos un patrón, es decir un movimiento compuesto
-
-pat = pattern(di, name='test')
-pat.add('base', 0, -400, 100)
-pat.add('codo', 0.5, -400, 10)
-pat.add('codo', 2.9, -600, 100)
-display(pat.get_df())
-pat.run(3)
-pat.save()
-
-# Movimiento creado aleatoriamente
-pat_a = pattern('A')
-pat_a.create_random(n_moves=4, t_max=4)
-pat_a.run(3)
-pat_a.save()
-
-
-pat_b = pattern('B')
-pat_b.create_random(n_moves=4, t_max=4)
-pat_b.run(3)
-pat_b.save()
-
-pat_a = pattern('C')
-pat_a.create_random(n_moves=4, t_max=4)
-pat_a.run(3)
-pat_a.save()
-
-
 
 # # 9. Liberar el puerto
 
