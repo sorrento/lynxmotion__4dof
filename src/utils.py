@@ -225,4 +225,7 @@ class Experimento:
             m.run()
 
     def save(self, name):
-        save_df(self.df, 'data/', 'exp_' + name, append_size=False)
+        ini = self.df.time.dt.strftime('%Y%m%d_%H%M%S').iloc[0]
+        end = self.df.time.dt.strftime('%Y%m%d_%H%M%S').iloc[-1]
+        name2 = name + '_' + ini + '__' + end
+        save_df(self.df, 'data/', 'exp_' + name2, append_size=False)

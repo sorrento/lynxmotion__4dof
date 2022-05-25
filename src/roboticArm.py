@@ -53,11 +53,11 @@ pat_b.save()
 
 # # Cargamos los movimientos y los combinamos en secuencias
 
-exp = Experimento(di, 4, 'data/move_A.json', 'data/move_B.json', 'data/move_C.json')
+exp = Experimento(di, 100, 'data/move_A.json', 'data/move_B.json', 'data/move_C.json')
 
 exp.run()
 
-exp.save(name='test1')
+exp.save(name='test')
 
 # # 8. Test de velocidades
 #
