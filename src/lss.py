@@ -10,16 +10,21 @@
 
 import re
 import serial
+from u_base import now
 from math import sqrt, atan, acos, fabs
 
 ### Import constants
 import lss_const as lssc
 
-
 ### Class functions
+
+
 def initBus(portName, portBaud):
-    LSS.bus = serial.Serial(portName, portBaud)
-    LSS.bus.timeout = 0.1
+    try:
+        LSS.bus = serial.Serial(portName, portBaud)
+        LSS.bus.timeout = 0.1
+    except Exception as e:
+        print(e)
 
 
 def closeBus():
@@ -29,13 +34,17 @@ def closeBus():
 
 
 # Write with a an optional parameter
-def genericWrite(id, cmd, param=None):
+def genericWrite(id, cmd, param=None, extra=None, verb=False):
     if LSS.bus is None:
         return False
-    if param is None:
-        LSS.bus.write((lssc.LSS_CommandStart + str(id) + cmd + lssc.LSS_CommandEnd).encode())
-    else:
-        LSS.bus.write((lssc.LSS_CommandStart + str(id) + cmd + str(param) + lssc.LSS_CommandEnd).encode())
+    msg = lssc.LSS_CommandStart + str(id) + cmd
+    if param is not None:
+        msg = msg + str(param)
+    if extra is not None:
+        msg = msg + extra
+    LSS.bus.write((msg + lssc.LSS_CommandEnd).encode())
+    if verb:
+        print(now(), msg)
     return True
 
 
@@ -138,18 +147,29 @@ class LSS:
     def hold(self):
         return genericWrite(self.servoID, lssc.LSS_ActionHold)
 
-    def moveTo(self, pos):
+    def moveTo(self, pos, vel=None, verb=False):
         """
 Mueve hasta la posicion pos: el 0 es el definido como offset
         :param pos: en décimas de grado
         :return:
         """
-        return genericWrite(self.servoID, lssc.LSS_ActionMove, pos)
+        if vel is None:
+            res = genericWrite(self.servoID, lssc.LSS_ActionMove, pos, verb=verb)
+        else:
+            res = genericWrite(self.servoID, lssc.LSS_ActionMove, pos, extra=lssc.LSS_ActionMaxSpeed + str(vel),
+                               verb=verb)
+        return res
 
     def move(self, delta):
         return genericWrite(self.servoID, lssc.LSS_ActionMoveRelative, delta)
 
     def wheel(self, speed):
+        """
+servo to wheel mode where it will rotate in the desired direction at the selected speed.
+The example above would have the servo rotate at 90.0 degrees per second clockwise
+        :param speed:
+        :return:
+        """
         return genericWrite(self.servoID, lssc.LSS_ActionWheel, speed)
 
     def wheelRPM(self, rpm):

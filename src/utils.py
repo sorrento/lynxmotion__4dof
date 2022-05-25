@@ -1,7 +1,11 @@
 import time
 import pandas as pd
+from IPython.core.display import display
 
-from u_base import now
+import lss
+import lss_const
+
+from u_base import now, save_json
 
 
 def get_status(myLSS, name="Telemetry", imprime=True):
@@ -36,7 +40,7 @@ def update_position(di):
         di[k]['pos'] = pos
         pose.append(pos)
 
-    print(pose)
+    print('Position (angles):', pose)
 
 
 def home(di):
@@ -54,9 +58,10 @@ def reset(di):
 
 
 class pattern:
-    def __init__(self, di):
+    def __init__(self, di, name='name'):
         self.moves = {}
         self.di = di
+        self.name = name
 
     def add(self, part, start, pos, vel):
         lista = ['base', 'hombro', 'codo', 'muneca', 'mano']
@@ -75,7 +80,7 @@ class pattern:
 
         return df_move
 
-    def run(self, go_home=True):
+    def _run(self, go_home=True):
         if go_home:
             home(self.di)
 
@@ -98,10 +103,33 @@ class pattern:
 
             print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, row.vel, now()))
 
-    def run_rep(self, n):
+    def run(self, n=1):
         for i in range(n):
             print('\n\n >>>>>>>>>>repeticion: {}/{}'.format(i + 1, n))
-            self.run()
+            self._run()
+
+    def create_random(self, n_moves=4, t_max=4):
+        """
+creación de movimientos random
+        :param n_moves:
+        :param t_max:
+        """
+        import random
+        di = self.di
+        partes = random.choices(list(di.keys()), k=n_moves)
+        move = {}
+
+        for k in partes:
+            pos = random.randint(di[k]['min'], di[k]['max'])
+            vel = random.randint(30, 300)
+            d = {round(random.random() * t_max, 2): {'o': k, 'pos': pos, 'vel': vel}}
+            move.update(d)
+
+        self.moves = move
+        display(self.get_df())
+
+    def save(self):
+        save_json(self.moves, 'data/move_' + self.name)
 
 
 def get_variables(di):
@@ -126,3 +154,45 @@ def plot_time(vels, title):
 
     plt.plot(vels.t, vels["vel"], lw=1)
     # plt.plot(vels.time, vels["vel"])
+
+
+def test2():
+    global b
+    b = 3
+
+
+def init(CST_LSS_Port="COM5"):
+    # Use the app LSS Flowarm that makes automatic scanning
+    CST_LSS_Baud = lss_const.LSS_DefaultBaud
+    lss.initBus(CST_LSS_Port, CST_LSS_Baud)
+
+    l_base = lss.LSS(1)
+    l_hombro = lss.LSS(2)
+    l_codo = lss.LSS(3)
+    l_muneca = lss.LSS(4)
+    l_mano = lss.LSS(5)
+
+    l_base.setColorLED(lss_const.LSS_LED_Red)
+    l_hombro.setColorLED(lss_const.LSS_LED_Blue)
+    l_codo.setColorLED(lss_const.LSS_LED_Green)
+    l_muneca.setColorLED(lss_const.LSS_LED_White)
+    l_mano.setColorLED(lss_const.LSS_LED_Cyan)
+
+    di = {'base':   {'o': l_base},
+          'hombro': {'o': l_hombro},
+          'codo':   {'o': l_codo},
+          'muneca': {'o': l_muneca},
+          'mano':   {'o': l_mano},
+          }
+
+    # fijamos los límites de movimiento
+    for k in di:
+        di[k]['min'] = -900
+        di[k]['max'] = 900
+
+    di['mano']['max'] = 0
+    di['base']['min'] = -1800
+    di['base']['max'] = 1800
+
+    home(di)
+    return di, l_base, l_hombro, l_codo, l_muneca, l_mano

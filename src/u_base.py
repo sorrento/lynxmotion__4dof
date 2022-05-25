@@ -38,7 +38,7 @@ def save_json(dic, path, datos_desc=''):
     """
     import json
     print('** Guardado los datos ' + datos_desc + ' en {}'.format(path))
-    with open(path, 'w', encoding="utf-8") as outfile:
+    with open(path + '.json', 'w', encoding="utf-8") as outfile:
         json.dump(dic, outfile, ensure_ascii=False)
 
 
