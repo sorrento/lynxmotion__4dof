@@ -3,6 +3,7 @@ import time
 from datetime import timedelta, datetime
 import pandas as pd
 from IPython.core.display import display
+from matplotlib import pyplot as plt
 
 import lss
 import lss_const
@@ -349,3 +350,15 @@ def get_tick(times):
     print('La mediana de tick es ', tic)
 
     return tic
+
+
+def plot_umaps(embedding, dfp_):
+    plt.figure(figsize=(20, 20))
+    for i, v in enumerate(['tt', 'class']):
+        plt.subplot(2, 2, i + 1)
+        plt.scatter(
+            embedding[:, 0],
+            embedding[:, 1],
+            c=dfp_[v].values, s=1, alpha=1)
+        plt.gca().set_aspect('equal', 'datalim')
+        plt.title(v, fontsize=24)
