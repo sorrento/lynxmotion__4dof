@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+import numpy as np
 
 FORMAT_DATE = "%Y%m%d"
 FORMAT_DATETIME = '%Y-%m-%d %H:%M:%S.%f'
@@ -142,3 +143,38 @@ def time_from_str(s, formato):
 
 def time_to_str(t, formato):
     return t.strftime(formato)
+
+
+def seq_len(ini, n, step):
+    """
+crea una secuencia de n enteros, a distancia step
+    :param n:
+    :param step:
+    :param ini:
+    :return:
+    """
+    end = ini + step * (n + 1)
+    return list(np.arange(ini, end, step)[:n])
+
+
+def nearest(x, lista):
+    """
+devuelve el número más cercano a x de la lista
+    :param x:
+    :param lista:
+    :return:
+    """
+    deltas = [abs(s - x) for s in lista]
+    pos = list_min_pos(deltas)
+
+    return lista[pos]
+
+
+def list_min_pos(lista):
+    """
+da la (primera) posición del elemento más pequeño
+    :param lista:
+    :return:
+    """
+    mi = min(lista)
+    return lista.index(mi)

@@ -7,7 +7,8 @@ from IPython.core.display import display
 
 import lss
 import lss_const
-from u_base import now, save_json, read_json, save_df, time_from_str, FORMAT_UTC2, FORMAT_DATETIME
+from u_base import now, save_json, read_json, save_df, time_from_str, FORMAT_UTC2, FORMAT_DATETIME, seq_len, nearest
+from u_plots import plot_hist
 
 
 def get_status(myLSS, name="Telemetry", imprime=True):
@@ -226,8 +227,9 @@ class Experimento:
             m.run()
 
     def save(self, name):
-        ini = self.df.time.dt.strftime('%Y%m%d_%H%M%S').iloc[0]
-        end = self.df.time.dt.strftime('%Y%m%d_%H%M%S').iloc[-1]
+        f = '%Y%m%d_%H%M%S'
+        ini = self.df.time.dt.strftime(f).iloc[0]
+        end = self.df.time.dt.strftime(f).iloc[-1]
         name2 = name + '_' + ini + '__' + end
         save_df(self.df, 'data/', 'exp_' + name2, append_size=False)
 
@@ -305,3 +307,45 @@ def crea_dataset(dt, df):
         tot = pd.concat([tot, b])
 
     return tot
+
+
+def plot_one_move_var(tot, var, mov, fa=1):
+    # var = 'a0'
+    # mov = 'C'
+    import matplotlib.pyplot as plt
+    f = tot[(tot.move == mov) & (tot._field == var)]
+
+    pi = pd.pivot(f, columns='i', values='_value', index='t').reset_index()
+    cols = pi.columns.to_list()[1:]
+
+    plt.figure(figsize=(12 / fa, 10 / fa))
+
+    plt.xlabel("time")
+    plt.ylabel("g?")
+    plt.title('Move: {}  var:{}'.format(mov, var))
+
+    for co in cols:
+        mask = ~ pi[co].isna()
+        plt.plot(pi['t'][mask], pi[co][mask], label='Line ' + str(co), lw=1)
+
+
+def to_ticked_time(x, tic):
+    q = x // tic
+    seq = seq_len(ini=tic * q, n=2, step=tic)
+    return nearest(x, seq)
+
+
+def get_tick(times):
+    import numpy as np
+    m = []
+    for i in range(len(times) - 1):
+        k = (times[i + 1] - times[i])
+
+        mili = k.microseconds / 1e3
+        m.append(mili)
+
+    plot_hist(m, 30)
+    tic = int(np.median(m))
+    print('La mediana de tick es ', tic)
+
+    return tic
