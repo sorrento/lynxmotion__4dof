@@ -23,8 +23,11 @@ from influxdb_client import InfluxDBClient
 
 from config import ORG, TOKEN
 from u_base import FORMAT_DATETIME, FORMAT_UTC, save_df
-from utils import make_query, plot_one_var
+from utils import make_query, plot_one_var, crea_dataset
+
 # -
+
+# # 1 Lectura de los datos de Influx para un experimento
 
 df = pd.read_csv('data/exp_test20220525_124118__20220525_125036.csv')
 
@@ -49,4 +52,18 @@ save_df(dt, 'data', 'measu_''test20220525_124118__20220525_125036')
 
 plot_one_var(dt, 'a0')
 
+# # Cortamos por partes
 
+df = pd.read_csv('data/exp_test20220525_124118__20220525_125036.csv')
+df['i'] = df.index + 1
+df = df.set_index('i')  # todo guardar ya con índicd desde 1
+df
+
+dt = pd.read_csv('data/measu_test20220525_124118__20220525_125036_73k_3.csv')
+dt
+
+tot = crea_dataset(dt, df)
+
+tot
+
+save_df(tot, path='data', name='exp1', append_size=False)  # todo homogenizar nombres

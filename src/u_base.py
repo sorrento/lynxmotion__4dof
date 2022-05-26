@@ -1,8 +1,11 @@
 import time
+from datetime import datetime
 
 FORMAT_DATE = "%Y%m%d"
 FORMAT_DATETIME = '%Y-%m-%d %H:%M:%S.%f'
 FORMAT_UTC = '%Y-%m-%dT%H:%M:%S.%fZ'
+FORMAT_UTC2 = '%Y-%m-%d %H:%M:%S.%f+00:00'
+
 
 def make_folder(path):
     import os
@@ -131,3 +134,11 @@ def save_df(df, path, name, save_index=False, append_size=True):
     df.to_csv(filename, index=save_index)
 
     return filename
+
+
+def time_from_str(s, formato):
+    return datetime.strptime(s, formato)
+
+
+def time_to_str(t, formato):
+    return t.strftime(formato)

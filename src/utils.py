@@ -1,11 +1,13 @@
 import random
 import time
+from datetime import timedelta, datetime
+
 import pandas as pd
 from IPython.core.display import display
 
 import lss
 import lss_const
-from u_base import now, save_json, read_json, save_df
+from u_base import now, save_json, read_json, save_df, time_from_str, FORMAT_UTC2, FORMAT_DATETIME
 
 
 def get_status(myLSS, name="Telemetry", imprime=True):
@@ -264,3 +266,42 @@ def plot_one_var(dt, var):
     plt.title(var)
 
     plt.plot(f._time, f._value, lw=1)
+
+
+def prepare_one(j, dt, df, limits_str):
+    i = j + 1
+    t0, t1 = limits_str[j], limits_str[j + 1]
+    print('Movimiento i:{}, entre tiempos {} | {}'.format(i, t0, t1))
+
+    b = dt[(dt._time >= t0) & (dt._time < t1)].copy()
+    b['i'] = i
+    b['move'] = df.loc[i].move
+    # columna de tiempo absoluto en ms
+    t_ref = time_from_str(b.iloc[0]._time, FORMAT_UTC2)
+    b['t'] = b['_time'].map(lambda x: round((time_from_str(x, FORMAT_UTC2) - t_ref).total_seconds() * 1000))
+
+    return b
+
+
+def ut(t, local=True):
+    #     resta dos horas si está en  hora local, para quedar en utc
+    # puede que falle en horario de verano o invierno
+    if local:
+        #         print(p)
+        t0 = t + timedelta(hours=-2)
+    else:
+        t0 = t
+    return t0
+
+
+def crea_dataset(dt, df):
+    limits = [ut(datetime.strptime(t, FORMAT_DATETIME)) for t in df.time]
+    limits.append(limits[-1] + timedelta(seconds=5))
+    limits_str = [t.strftime(FORMAT_UTC2) for t in limits]
+
+    tot = pd.DataFrame()
+    for j in range(len(df)):
+        b = prepare_one(j, dt, df, limits_str)
+        tot = pd.concat([tot, b])
+
+    return tot
