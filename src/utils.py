@@ -1,7 +1,6 @@
 import random
 import time
 from datetime import timedelta, datetime
-
 import pandas as pd
 from IPython.core.display import display
 
@@ -260,14 +259,14 @@ Trae todos los campos para los tiempos UTC entre t0 y t1
 def plot_one_var(dt, var):
     import matplotlib.pyplot as plt
 
-    f = dt[dt._field == var]
+    f = dt[dt.variable == var]
     plt.figure(figsize=(12, 10))
 
     plt.xlabel("time(-2)")
     plt.ylabel("g?")
     plt.title(var)
 
-    plt.plot(f._time, f._value, lw=1)
+    plt.plot(f.time, f.value, lw=1)
 
 
 def prepare_one(j, dt, df, limits_str):
@@ -275,12 +274,12 @@ def prepare_one(j, dt, df, limits_str):
     t0, t1 = limits_str[j], limits_str[j + 1]
     print('Movimiento i:{}, entre tiempos {} | {}'.format(i, t0, t1))
 
-    b = dt[(dt._time >= t0) & (dt._time < t1)].copy()
+    b = dt[(dt.time >= t0) & (dt.time < t1)].copy()
     b['i'] = i
     b['move'] = df.loc[i].move
     # columna de tiempo absoluto en ms
-    t_ref = time_from_str(b.iloc[0]._time, FORMAT_UTC2)
-    b['t'] = b['_time'].map(lambda x: round((time_from_str(x, FORMAT_UTC2) - t_ref).total_seconds() * 1000))
+    t_ref = time_from_str(b.iloc[0].time, FORMAT_UTC2)
+    b['t'] = b['time'].map(lambda x: round((time_from_str(x, FORMAT_UTC2) - t_ref).total_seconds() * 1000))
 
     return b
 
@@ -297,7 +296,8 @@ def ut(t, local=True):
 
 
 def crea_dataset(dt, df):
-    limits = [ut(datetime.strptime(t, FORMAT_DATETIME)) for t in df.time]
+    l = False  # todo ponerlo en false si ya escribimos el fichero de movimientos con hora utc
+    limits = [ut(datetime.strptime(t, FORMAT_DATETIME), local=l) for t in df.time]
     limits.append(limits[-1] + timedelta(seconds=5))
     limits_str = [t.strftime(FORMAT_UTC2) for t in limits]
 
@@ -313,9 +313,9 @@ def plot_one_move_var(tot, var, mov, fa=1):
     # var = 'a0'
     # mov = 'C'
     import matplotlib.pyplot as plt
-    f = tot[(tot.move == mov) & (tot._field == var)]
+    f = tot[(tot.move == mov) & (tot.varible == var)]
 
-    pi = pd.pivot(f, columns='i', values='_value', index='t').reset_index()
+    pi = pd.pivot(f, columns='i', values='value', index='t').reset_index()
     cols = pi.columns.to_list()[1:]
 
     plt.figure(figsize=(12 / fa, 10 / fa))

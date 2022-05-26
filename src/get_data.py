@@ -47,8 +47,8 @@ query_api = client.query_api()
 q = make_query(t0.strftime(FORMAT_UTC), t1.strftime(FORMAT_UTC))
 dataframe = query_api.query_data_frame(q)
 
-dt = dataframe[['_field', '_value', '_time']]
-save_df(dt, 'data_med', 'measu_''test20220525_124118__20220525_125036')
+dt = dataframe[['_field', '_value', '_time']].rename(columns={'_field': 'variable', '_time': 'time', '_value':'value'})
+save_df(dt, 'data_med', 'measu_'+'test20220525_124118__20220525_125036')
 
 plot_one_var(dt, 'a0')
 
@@ -65,7 +65,7 @@ dt
 tot = crea_dataset(dt, df)
 
 #agregamos la variable tt con tiempos en ticks
-times = [time_from_str(x, FORMAT_UTC2) for x in dt._time.unique()]
+times = [time_from_str(x, FORMAT_UTC2) for x in dt.time.unique()]
 tic = get_tick(times)
 tot['tt'] = tot['t'].map(lambda x: to_ticked_time(x, tic)) #todo: es posible que haya agujeros (ticks sin valor en alguna var)
 
@@ -80,7 +80,7 @@ save_df(tot, path='data_out', name='exp1', append_size=False)  # todo homogeniza
 # - `c` (compas) es medida de **campo magnético **(en ??)
 # - `f` **fusion**, angulos (pitch, roll, yaw)
 
-variables = list(tot._field.unique())
+variables = list(tot.variable.unique())
 
 for v in variables:
     plot_one_move_var(tot, var=v, mov='A')
