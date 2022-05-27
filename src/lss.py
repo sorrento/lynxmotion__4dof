@@ -22,7 +22,7 @@ import lss_const as lssc
 
 def initBus(portName, portBaud):
     try:
-        LSS.bus = serial.Serial(portName, portBaud)
+        LSS.bus = serial.Serial(portName, portBaud, write_timeout=0)
         LSS.bus.timeout = 0.1
     except Exception as e:
         print(e)

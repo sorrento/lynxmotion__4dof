@@ -41,7 +41,10 @@ def update_position(di):
     for k in di:
         #         print(k)
         o = di[k]['o']
-        pos = int(o.getPosition())
+        try:
+            pos = int(o.getPosition())
+        except Exception as e:
+            pos = -999
         di[k]['pos'] = pos
         pose.append(pos)
 
@@ -56,7 +59,7 @@ def home(di, reset_if_error=True):
     for k in di:
         o = di[k]['o']
         status = o.getStatus()
-        if status not in ['1', '6']:
+        if status not in ['1', '6', '3']:
             if status is None:
                 kk = 'None'
             else:
@@ -68,7 +71,8 @@ def home(di, reset_if_error=True):
                 o.reset()
             raise Exception(msg)
         o.moveTo(0)
-    time.sleep(1.5)  # para garantizar que se detiene
+    while is_moving(di):
+        time.sleep(0.2)  # para garantizar que se detiene
     update_position(di)
 
 
@@ -115,9 +119,11 @@ class Pattern:
         delta = 0  # tiempo antes del siguiente movimiento
         df = self.get_df()
 
-        self.t = threading.Thread(target=monitoriza_servos, args=(self.di,self.stop))
-        self.t.start()
-        for i in range(len(df)):
+        # self.t = threading.Thread(target=monitoriza_servos, args=(self.di, self.stop))
+        # self.t.start()
+        n_moves = len(df)
+
+        for i in range(n_moves):
             row = df.iloc[i, :]
             vel = row.vel
             print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
@@ -126,24 +132,34 @@ class Pattern:
             if test_mode:
                 vel = 30
                 delta = 1.5
-                print('prev:', self.di[row.o]['o'].getCurrent())
-
             o = self.di[row.o]['o']
             o.moveTo(row.pos, vel)
 
-            # wait sleeping
-            if i > 0 and not test_mode:
-                r_prev = df.iloc[i - 1, :]
-                delta = float(row['time']) - float(r_prev['time'])
+            # wait sleeping to start new instruction
+            if i < (n_moves - 1) and not test_mode:
+                r_next = df.iloc[i + 1, :]
+                delta = float(r_next['time']) - float(row['time'])
 
             if delta > 0:
                 time.sleep(delta)
                 print('>>>Waiting ', round(delta, 2))
 
-    def run(self, n=1, end_home=True):
+            delta = 0
+
+        # espera a estar quieto para situiente instrucción
+        while is_moving(self.di):
+            time.sleep(0.1)
+
+        print('ya está quieto; ha terminado')
+
+    def run(self, n=1, start_home=True, end_home=True, intercala_home=True):
+        if start_home:
+            home(self.di)
+
         for i in range(n):
             print('\n\n >>>>>>>>>>repeticion: {}/{}'.format(i + 1, n))
-            self._run()
+            self._run(start_home=intercala_home)
+
         if end_home:
             home(self.di)
 
@@ -225,7 +241,11 @@ def is_moving(di):
     li = []
     for k in di:
         o = di[k]['o']
-        v = int(o.getSpeed())
+        try:
+            v = int(o.getSpeed())
+        except Exception as e:
+            print('No se puede medir velocidad de {}', k)
+            v = 0
         # print(k, ' vel', v)
         li.append(abs(v))
 
@@ -234,11 +254,17 @@ def is_moving(di):
 
 def is_at_home(di):
     li = []
-    for k in di:
-        o = di[k]['o']
-        p = int(o.getPosition())
-        li.append(abs(p))
-    return sum(li) < 15
+    try:
+        for k in di:
+            o = di[k]['o']
+            p = int(o.getPosition())
+            li.append(abs(p))
+        at_home = sum(li) < 15
+    except Exception as e:
+        print('no puedo medir posicion ', e)
+        at_home = False
+
+    return at_home
 
 
 def get_variables(di):
