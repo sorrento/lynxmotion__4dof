@@ -10,6 +10,7 @@ import lss
 import lss_const
 from lss_const import d_status
 from u_base import now, save_json, read_json, save_df, time_from_str, FORMAT_UTC2, FORMAT_DATETIME, seq_len, nearest
+from u_io import escribe_txt
 from u_plots import plot_hist
 
 
@@ -55,11 +56,13 @@ def home(di, reset_if_error=True):
     if is_at_home(di):
         print('ya está en casa')
         return
+    else:
+        print('Going Home')
 
     for k in di:
         o = di[k]['o']
         status = o.getStatus()
-        if status not in ['1', '6', '3']:
+        if status not in ['1', '6', '3', '4']:
             if status is None:
                 kk = 'None'
             else:
@@ -186,11 +189,12 @@ creación de movimientos random
     def save(self, path='data_in/patrones/'):
         save_json(self.moves, path + 'move_' + self.name)
 
-    def load(self, path):
+    def load(self, path, verbatim=False):
         self.name = path.split('/')[-1].split('.')[0].split('_')[-1]
-        print('Movimiento llamado: {}'.format(self.name))
         self.moves = read_json(path)
-        display(self.get_df())
+        if verbatim:
+            print('Movimiento llamado: {}'.format(self.name))
+            display(self.get_df())
 
 
 def monitoriza_servos(di, cb):
@@ -328,34 +332,52 @@ def init(CST_LSS_Port="COM5"):
     return di, l_base, l_hombro, l_codo, l_muneca, l_mano
 
 
-def pat_from_file(di, file):
+def pattern_from_file(di, file):
     a = Pattern(di)
     a.load(file)
     return a
 
 
+def patterns_from_files(di, files):
+    return [pattern_from_file(di, file) for file in files]
+
+
 class Experimento:
     def __init__(self, di, n, *files):
-        moves = [pat_from_file(di, file) for file in files]
+        self.di = di
+        moves = patterns_from_files(di, files)
         self.r_moves = random.choices(moves, k=n)
         seq = [x.name for x in self.r_moves]
         print(seq)
         self.df = pd.DataFrame()
 
     def run(self):
+        home(self.di)
         for m in self.r_moves:
-            print(now(True), ' doing ', m.name)
-            df2 = pd.DataFrame({'time': [now(True)], 'move': [m.name]})
+            t1 = now(True)
+            print(t1, ' doing ', m.name)
+            m.run(1, start_home=False, end_home=False, intercala_home=False)
+
+            time.sleep(1)
+            t2 = now(True)
+            home(self.di)
+            df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH']})
             self.df = pd.concat([self.df, df2])
+        home(self.di)
 
-            m.run()
-
-    def save(self, name):
+    def save(self, name, desc, path='data_in/experimentos/'):
         f = '%Y%m%d_%H%M%S'
+        moves_ = [x.name for x in self.r_moves]
+        le = str(len(moves_))
+        tx = desc + '\n\n' + 'n_moves: ' + le + '\n\n' + str(moves_)
+
         ini = self.df.time.dt.strftime(f).iloc[0]
         end = self.df.time.dt.strftime(f).iloc[-1]
-        name2 = name + '_' + ini + '__' + end
-        save_df(self.df, 'data/', 'exp_' + name2, append_size=False)
+        name2 = name + '_n' + le + '_' + ini + '__' + end
+
+        save_df(self.df, path, 'exp_' + name2, append_size=False)
+
+        escribe_txt(tx, path + name2 + '.txt')
 
 
 def make_query(t0, t1, average=False):
