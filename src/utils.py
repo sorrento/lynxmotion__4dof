@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 import lss
 import lss_const
+from lss_const import d_status
 from u_base import now, save_json, read_json, save_df, time_from_str, FORMAT_UTC2, FORMAT_DATETIME, seq_len, nearest
 from u_plots import plot_hist
 
@@ -48,7 +49,13 @@ def update_position(di):
 
 def home(di):
     for k in di:
-        di[k]['o'].moveTo(0)
+        o = di[k]['o']
+        status = o.getStatus()
+        if status != 6:
+            msg = '** WARNING status of {} is not normal, is {}:{}'.format(k, status, d_status[int(status)])
+            # print(msg)
+            raise Exception(msg)
+        o.moveTo(0)
     time.sleep(1.5)  # para garantizar que se detiene
     update_position(di)
 
@@ -83,7 +90,7 @@ class Pattern:
 
         return df_move
 
-    def _run(self, start_home=True):
+    def _run(self, start_home=True, slow=False):
         if start_home:
             home(self.di)
 
@@ -98,13 +105,16 @@ class Pattern:
                 delta = float(row['time']) - float(r_prev['time'])
             if delta > 0:
                 time.sleep(delta)
-                print('>>>Waiting ', delta)
+                print('>>>Waiting ', round(delta, 2))
 
             # move
             o = self.di[row.o]['o']
-            o.moveTo(row.pos, row.vel)
+            vel = row.vel
+            if slow:
+                vel = 30
+            o.moveTo(row.pos, vel)
 
-            print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, row.vel, now()))
+            print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
 
     def run(self, n=1, end_home=True):
         for i in range(n):
@@ -133,8 +143,8 @@ creación de movimientos random
         self.moves = move
         display(self.get_df())
 
-    def save(self):
-        save_json(self.moves, 'data/move_' + self.name)
+    def save(self, path='data_in/patrones/'):
+        save_json(self.moves, path + 'move_' + self.name)
 
     def load(self, path):
         self.name = path.split('/')[-1].split('.')[0].split('_')[-1]
