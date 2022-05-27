@@ -1,11 +1,16 @@
-from sklearn.preprocessing import StandardScaler
-from tensorflow.keras import models, losses
-from tensorflow.python.keras import Input
-from tensorflow.python.keras.layers import Conv1D, Multiply, Add, Dense
-from tensorflow.python.keras.optimizer_v2.adam import Adam
+import pickle
+
+import lightgbm as lgb
+import numpy as np
+import pandas as pd
+from IPython.core.display import display
+from matplotlib import pyplot as plt
+from sklearn import metrics as me
+from sklearn.metrics import roc_curve, confusion_matrix
 
 
 def standardize_function(X_train):
+    from sklearn.preprocessing import StandardScaler
     df_scaled = pd.DataFrame(StandardScaler().fit_transform(X_train), columns=X_train.columns)
     return df_scaled
 
@@ -18,6 +23,11 @@ entrena una wavenet
     :param n_out: número de clases
     :return:
     """
+
+    from tensorflow.keras import models, losses
+    from tensorflow.python.keras import Input
+    from tensorflow.python.keras.layers import Conv1D, Multiply, Add, Dense
+    from tensorflow.python.keras.optimizer_v2.adam import Adam
 
     def wave_block(x, filters, kernel_size, n):
         dilation_rates = [2 ** i for i in range(n)]
@@ -58,18 +68,6 @@ entrena una wavenet
     # opt = tfa.optimizers.SWA(opt)
     model.compile(loss=losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
     return model
-
-
-import pickle
-
-import lightgbm as lgb
-import numpy as np
-import pandas as pd
-from IPython.core.display import display
-from matplotlib import pyplot as plt
-from sklearn import metrics as me
-from sklearn.metrics import roc_curve, confusion_matrix
-from sklearn.model_selection import KFold
 
 
 def _best_f1(y_true, probs):
@@ -428,6 +426,8 @@ in data with the prediction of p model for its fold
         :param params:
         :param kwargs:
         """
+        from sklearn.model_selection import KFold
+
         self.is_binary = (len(Y_data.value_counts()) == 2)
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)

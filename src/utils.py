@@ -1,4 +1,5 @@
 import random
+import threading
 import time
 from datetime import timedelta, datetime
 import pandas as pd
@@ -47,13 +48,24 @@ def update_position(di):
     print('Position (angles):', pose)
 
 
-def home(di):
+def home(di, reset_if_error=True):
+    if is_at_home(di):
+        print('ya está en casa')
+        return
+
     for k in di:
         o = di[k]['o']
         status = o.getStatus()
-        if status != 6:
-            msg = '** WARNING status of {} is not normal, is {}:{}'.format(k, status, d_status[int(status)])
+        if status not in ['1', '6']:
+            if status is None:
+                kk = 'None'
+            else:
+                kk = d_status[int(status)]
+
+            msg = '** WARNING status of <<{}>> is not normal, is {}:{}. Reseteamos el servo '.format(k, status, kk)
             # print(msg)
+            if reset_if_error:
+                o.reset()
             raise Exception(msg)
         o.moveTo(0)
     time.sleep(1.5)  # para garantizar que se detiene
@@ -90,31 +102,43 @@ class Pattern:
 
         return df_move
 
-    def _run(self, start_home=True, slow=False):
+    def stop(self, servo):
+        print('poniendo todos en HOLD a causa de ', servo)
+        for k in self.di:
+            o = self.di[k]['o']
+            o.hold()
+
+    def _run(self, start_home=True, test_mode=False):
         if start_home:
             home(self.di)
 
-        delta = 0
+        delta = 0  # tiempo antes del siguiente movimiento
         df = self.get_df()
+
+        self.t = threading.Thread(target=monitoriza_servos, args=(self.di,self.stop))
+        self.t.start()
         for i in range(len(df)):
             row = df.iloc[i, :]
+            vel = row.vel
+            print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
+
+            # move
+            if test_mode:
+                vel = 30
+                delta = 1.5
+                print('prev:', self.di[row.o]['o'].getCurrent())
+
+            o = self.di[row.o]['o']
+            o.moveTo(row.pos, vel)
 
             # wait sleeping
-            if i > 0:
+            if i > 0 and not test_mode:
                 r_prev = df.iloc[i - 1, :]
                 delta = float(row['time']) - float(r_prev['time'])
+
             if delta > 0:
                 time.sleep(delta)
                 print('>>>Waiting ', round(delta, 2))
-
-            # move
-            o = self.di[row.o]['o']
-            vel = row.vel
-            if slow:
-                vel = 30
-            o.moveTo(row.pos, vel)
-
-            print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
 
     def run(self, n=1, end_home=True):
         for i in range(n):
@@ -151,6 +175,70 @@ creación de movimientos random
         print('Movimiento llamado: {}'.format(self.name))
         self.moves = read_json(path)
         display(self.get_df())
+
+
+def monitoriza_servos(di, cb):
+    l_codo = di['codo']['o']
+    l_hombro = di['hombro']['o']
+
+    n_not_moving = 0
+    for i in range(1500):
+        time.sleep(0.1)
+        # get_speed = l_codo.getSpeed()
+        # print(get_speed)
+        # try:
+        #     speed = int(get_speed)
+        # except Exception as e:
+        #     print(e)
+        #     speed = -1
+
+        txt = '>>{}  medida:{}, cu:{} , sp:{}, vol:{}'
+        try:
+            cc = int(l_codo.getCurrent())
+            cv = int(l_codo.getSpeed())
+            hc = int(l_hombro.getCurrent())
+            hv = int(l_hombro.getSpeed())
+            print(txt.format(i, 'codo', cc, cv, l_codo.getVoltage()))
+            print(txt.format(i, 'hombro', hc, hv, l_hombro.getVoltage()))
+
+            if (abs(cv) < 10) and cc > 1000:
+                print('salimos CODO ')
+                cb()
+                break
+            if (abs(hv) < 10) and hc > 1000:
+                print('salimos HOMBRO ')
+                cb()
+                break
+
+            if is_moving(di):
+                n_not_moving = 0
+            else:
+                n_not_moving = n_not_moving + 1
+                if n_not_moving > 4:
+                    print('stp, ya no se mueve, detenemos la monitorización')
+                    break
+        except Exception as e:
+            print(e)
+
+
+def is_moving(di):
+    li = []
+    for k in di:
+        o = di[k]['o']
+        v = int(o.getSpeed())
+        # print(k, ' vel', v)
+        li.append(abs(v))
+
+    return sum(li) > 5
+
+
+def is_at_home(di):
+    li = []
+    for k in di:
+        o = di[k]['o']
+        p = int(o.getPosition())
+        li.append(abs(p))
+    return sum(li) < 15
 
 
 def get_variables(di):
@@ -253,12 +341,12 @@ Trae todos los campos para los tiempos UTC entre t0 y t1
     :return:
     """
     q0 = """from(bucket: "samva")
-     |> range(start: %s, stop: %s)
-     |> filter(fn: (r) => r["_field"] == "f2" or r["_field"] == "f0" or r["_field"] == "f1" or r["_field"] == "a0" or r["_field"] == "a1" or r["_field"] == "a2" or r["_field"] == "g0" or r["_field"] == "g1" or r["_field"] == "g2" or r["_field"] == "c0" or r["_field"] == "c1" or r["_field"] == "c2") """ % (
+ |> range(start: %s, stop: %s)
+ |> filter(fn: (r) => r["_field"] == "f2" or r["_field"] == "f0" or r["_field"] == "f1" or r["_field"] == "a0" or r["_field"] == "a1" or r["_field"] == "a2" or r["_field"] == "g0" or r["_field"] == "g1" or r["_field"] == "g2" or r["_field"] == "c0" or r["_field"] == "c1" or r["_field"] == "c2") """ % (
         t0, t1)
 
     q1 = """|> aggregateWindow(every: 1s, fn: mean, createEmpty: false)
-      |> yield(name: "mean")"""
+  |> yield(name: "mean")"""
 
     if average:
         q0 = q0 + q1

@@ -109,8 +109,6 @@ model.fit(X_train, y_train,
 preds_test = model.predict(X_test)
 # -
 
-# Ha acertado 100%:
-
 preds_test.shape
 
 np.mean(preds_test, axis=1)
