@@ -52,7 +52,14 @@ def update_position(di):
     print('Position (angles):', pose)
 
 
-def home(di, reset_if_error=True):
+def home(di, reset_if_error=True, shifted_base=0):
+    """
+lleva a la posición de origen
+    :param di:
+    :param reset_if_error:
+    :param shifted_base: ángulo por el cual dejaremos la base rotada. (900 = 90 grados clockwise)
+    :return:
+    """
     if is_at_home(di):
         print('ya está en casa')
         return
@@ -73,7 +80,11 @@ def home(di, reset_if_error=True):
             if reset_if_error:
                 o.reset()
             raise Exception(msg)
-        o.moveTo(0)
+        if k == 'base':
+            o.moveTo(shifted_base)
+            print('moviendo a home con base shiftada: ', str(round(shifted_base / 10, 1)), ' grados')
+        else:
+            o.moveTo(0)
     while is_moving(di):
         time.sleep(0.2)  # para garantizar que se detiene
     update_position(di)
@@ -100,11 +111,13 @@ class Pattern:
         else:
             print('part debe ser uno de estos {}')
 
-    def get_dic(self):
-        return self.moves
+    def get_dic_moves(self, random_perc=0):
+        d_moves = varia_pattern(self.moves, random_perc)
+        return d_moves
 
-    def get_df(self):
-        df_move = pd.DataFrame.from_dict(self.moves, orient='index').reset_index().sort_values('index')
+    def get_df_moves(self, random_perc=0):
+        dic_moves = self.get_dic_moves(random_perc)
+        df_move = pd.DataFrame.from_dict(dic_moves, orient='index').reset_index().sort_values('index')
         df_move = df_move.rename(columns={'index': 'time'})
 
         return df_move
@@ -115,19 +128,19 @@ class Pattern:
             o = self.di[k]['o']
             o.hold()
 
-    def _run(self, start_home=True, test_mode=False, silent=False):
+    def _run(self, start_home=True, test_mode=False, silent=False, base_shift=0, random_perc=0):
         if start_home:
             home(self.di)
 
         delta = 0  # tiempo antes del siguiente movimiento
-        df = self.get_df()
+        df_moves = self.get_df_moves(random_perc)
 
         # self.t = threading.Thread(target=monitoriza_servos, args=(self.di, self.stop))
         # self.t.start()
-        n_moves = len(df)
+        n_moves = len(df_moves)
 
         for i in range(n_moves):
-            row = df.iloc[i, :]
+            row = df_moves.iloc[i, :]
             vel = row.vel
             if not silent:
                 print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
@@ -137,11 +150,13 @@ class Pattern:
                 vel = 30
                 delta = 1.5
             o = self.di[row.o]['o']
-            o.moveTo(row.pos, vel)
+            x = varia(row.pos, random_perc)
+            v = varia(vel, random_perc)
+            o.moveTo(x, v)
 
             # wait sleeping to start new instruction
             if i < (n_moves - 1) and not test_mode:
-                r_next = df.iloc[i + 1, :]
+                r_next = df_moves.iloc[i + 1, :]
                 delta = float(r_next['time']) - float(row['time'])
 
             if delta > 0:
@@ -155,19 +170,44 @@ class Pattern:
         while is_moving(self.di):
             time.sleep(0.1)
 
-        print('ya está quieto; ha terminado')
+        if not silent:
+            print('ya está quieto; ha terminado')
 
-    def run(self, n=1, start_home=True, end_home=True, intercala_home=True, silent=False):
+        executed_mov = {'shift_base':   base_shift,
+                        'name':         self.name,
+                        'random_perc':  random_perc,
+                        'base_pattern': self.get_df_moves(),
+                        'real_pattern': df_moves}
+
+        return executed_mov
+
+    def run(self, n=1, start_home=True, end_home=True, intercala_home=True, silent=False, random_perc=0,
+            base_shift=0):
+        """
+
+        :param n:
+        :param start_home:
+        :param end_home:
+        :param intercala_home:
+        :param silent:
+        :param random_perc: incorpora un porcentaje de aletoreidad al movimiento
+        :param base_shift: los movimientos de la base están todos desplazados en esta cantidad
+        """
+        d = {}
         if start_home:
-            home(self.di)
+            home(self.di, shifted_base=base_shift)
 
         for i in range(n):
             if not silent:
                 print('\n\n >>>>>>>>>>repeticion: {}/{}'.format(i + 1, n))
-            self._run(start_home=intercala_home, silent=silent)
+            d_moves = self._run(start_home=intercala_home, silent=silent, base_shift=base_shift,
+                                random_perc=random_perc)
+            d.update(d_moves)
 
         if end_home:
-            home(self.di)
+            home(self.di, shifted_base=base_shift)
+
+        return d
 
     def create_random(self, n_moves=4, t_max=4):
         """
@@ -187,7 +227,7 @@ creación de movimientos random
             move.update(d)
 
         self.moves = move
-        display(self.get_df())
+        display(self.get_df_moves())
 
     def save(self, path='data_in/patrones/'):
         save_json(self.moves, path + 'move_' + self.name)
@@ -197,7 +237,7 @@ creación de movimientos random
         self.moves = read_json(path)
         if verbatim:
             print('Movimiento llamado: {}'.format(self.name))
-            display(self.get_df())
+            display(self.get_df_moves())
 
 
 def monitoriza_servos(di, cb):
@@ -298,6 +338,15 @@ def plot_time(vels, title):
     # plt.plot(vels.time, vels["vel"])
 
 
+def get_di_empty():
+    return {'base':   {'o': 'l_base'},
+            'hombro': {'o': 'l_hombro'},
+            'codo':   {'o': 'l_codo'},
+            'muneca': {'o': 'l_muneca'},
+            'mano':   {'o': 'l_mano'},
+            }
+
+
 def init(CST_LSS_Port="COM5"):
     # Use the app LSS Flowarm that makes automatic scanning
     CST_LSS_Baud = lss_const.LSS_DefaultBaud
@@ -353,19 +402,23 @@ class Experimento:
         seq = [x.name for x in self.r_moves]
         print(seq)
         self.df = pd.DataFrame()
+        self.d_moves_done = {}
 
     def run(self):
         home(self.di)
         for m in self.r_moves:
             t1 = now(True)
             print(t1, ' doing ', m.name, ' | ', t1)
-            m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True)
+            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True)
+            self.d_moves_done[t1] = d_move
 
             time.sleep(1)
             t2 = now(True)
             home(self.di)
             df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH']})
+
             self.df = pd.concat([self.df, df2])
+
         home(self.di)
 
     def save(self, name, desc, path='data_in/experimentos/'):
@@ -378,9 +431,14 @@ class Experimento:
         end = self.df.time.dt.strftime(f).iloc[-1]
         name2 = name + '_n' + le + '_' + ini + '__' + end
 
+        # df con los movimientos realizados (time - nombre)
         save_df(self.df, path, 'exp_' + name2, append_size=False)
 
+        # descripción del experimento
         escribe_txt(tx, path + name2 + '.txt')
+
+        # movimientos reales realizados (considerando la variación aleatoria y shift de la base
+        save_json(self.d_moves_done, path, name2 + '_real' + '.json')
 
 
 def make_query(t0, t1, average=False):
@@ -511,3 +569,46 @@ def plot_umaps(embedding, dfp_):
             c=dfp_[v].values, s=1, alpha=1)
         plt.gca().set_aspect('equal', 'datalim')
         plt.title(v, fontsize=24)
+
+
+def varia(x, p, n=0):
+    if p == 0:
+        r = p
+    else:
+        lim = x * p / 100
+        # print(lim)
+        r = round(x + lim * random.uniform(-1, 1), n)
+
+    return r
+
+
+def varia_pattern(d_mov, p):
+    if p == 0:
+        d = d_mov
+    else:
+        d = {}
+        for k in d_mov:
+            t = str(varia(float(k), p, 2))
+            dd = d_mov[k]
+            dd['pos'] = varia(dd['pos'], p)
+            dd['vel'] = varia(dd['vel'], p)
+            d[t] = dd
+    return d
+
+
+def test_move(move, files, di):
+    p = move_from_files(di, files, move)
+    p.run(end_home=False)
+    return p
+
+
+def move_from_files(di, files, move):
+    pats = patterns_from_files(di, files)
+    return [x for x in pats if x.name == move][0]
+
+
+def test_all_moves(files, di):
+    pats = patterns_from_files(di, files)
+    for mo in pats:
+        print('\n\n>>>>>>>>>>>>>>>>>>> ', mo.name)
+        mo.run(start_home=True, end_home=True)

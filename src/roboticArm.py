@@ -36,7 +36,7 @@ pat = Pattern(di, name='test')
 pat.add('base', 0, -400, 100)
 pat.add('codo', 0.5, -400, 10)
 pat.add('codo', 2.9, -600, 100)
-display(pat.get_df())
+display(pat.get_df_moves())
 pat.run(3)
 pat.save()
 
