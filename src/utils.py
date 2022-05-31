@@ -115,7 +115,7 @@ class Pattern:
             o = self.di[k]['o']
             o.hold()
 
-    def _run(self, start_home=True, test_mode=False):
+    def _run(self, start_home=True, test_mode=False, silent=False):
         if start_home:
             home(self.di)
 
@@ -129,7 +129,8 @@ class Pattern:
         for i in range(n_moves):
             row = df.iloc[i, :]
             vel = row.vel
-            print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
+            if not silent:
+                print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
 
             # move
             if test_mode:
@@ -145,7 +146,8 @@ class Pattern:
 
             if delta > 0:
                 time.sleep(delta)
-                print('>>>Waiting ', round(delta, 2))
+                if not silent:
+                    print('>>>Waiting ', round(delta, 2))
 
             delta = 0
 
@@ -155,13 +157,14 @@ class Pattern:
 
         print('ya está quieto; ha terminado')
 
-    def run(self, n=1, start_home=True, end_home=True, intercala_home=True):
+    def run(self, n=1, start_home=True, end_home=True, intercala_home=True, silent=False):
         if start_home:
             home(self.di)
 
         for i in range(n):
-            print('\n\n >>>>>>>>>>repeticion: {}/{}'.format(i + 1, n))
-            self._run(start_home=intercala_home)
+            if not silent:
+                print('\n\n >>>>>>>>>>repeticion: {}/{}'.format(i + 1, n))
+            self._run(start_home=intercala_home, silent=silent)
 
         if end_home:
             home(self.di)
@@ -355,8 +358,8 @@ class Experimento:
         home(self.di)
         for m in self.r_moves:
             t1 = now(True)
-            print(t1, ' doing ', m.name)
-            m.run(1, start_home=False, end_home=False, intercala_home=False)
+            print(t1, ' doing ', m.name, ' | ', t1)
+            m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True)
 
             time.sleep(1)
             t2 = now(True)
