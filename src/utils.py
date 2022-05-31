@@ -1,5 +1,4 @@
 import random
-import threading
 import time
 from datetime import timedelta, datetime
 import pandas as pd
@@ -571,18 +570,22 @@ def plot_umaps(embedding, dfp_):
         plt.title(v, fontsize=24)
 
 
-def varia(x, p, n=0):
+def varia(x, p, n=0, min=None, max=None):
     if p == 0:
         r = p
     else:
         lim = x * p / 100
         # print(lim)
         r = round(x + lim * random.uniform(-1, 1), n)
+        if min is not None and r < min:
+            r = min
+        if max is not None and r > max:
+            r = max
 
     return r
 
 
-def varia_pattern(d_mov, p):
+def varia_pattern(d_mov, p, di=None):
     if p == 0:
         d = d_mov
     else:
@@ -590,8 +593,13 @@ def varia_pattern(d_mov, p):
         for k in d_mov:
             t = str(varia(float(k), p, 2))
             dd = d_mov[k]
-            dd['pos'] = varia(dd['pos'], p)
-            dd['vel'] = varia(dd['vel'], p)
+            # limitamos por si hubiera limites (di)
+            if di is not None:
+                mini, maxi = di[k]['min'], di[k]['max']
+            else:
+                mini, maxi = None, None
+            dd['pos'] = varia(dd['pos'], p, min=mini, max=maxi)
+            dd['vel'] = varia(dd['vel'], p, min=30)
             d[t] = dd
     return d
 
