@@ -59,7 +59,7 @@ lleva a la posición de origen
     :param shifted_base: ángulo por el cual dejaremos la base rotada. (900 = 90 grados clockwise)
     :return:
     """
-    if is_at_home(di):
+    if is_at_home(di) and shifted_base == 0:
         print('ya está en casa')
         return
     else:
@@ -77,7 +77,7 @@ lleva a la posición de origen
             msg = '** WARNING status of <<{}>> is not normal, is {}:{}. Reseteamos el servo '.format(k, status, kk)
             # print(msg)
             if reset_if_error:
-                o.reset()
+                o.resetea_all()
             raise Exception(msg)
         if k == 'base':
             o.moveTo(shifted_base)
@@ -89,7 +89,7 @@ lleva a la posición de origen
     update_position(di)
 
 
-def reset(di):
+def resetea_all(di):
     print('***+CUIDADO que el brazo se CAERÁ')
     time.sleep(2)
     for k in di:
@@ -119,7 +119,7 @@ class Pattern:
         df_move = pd.DataFrame.from_dict(dic_moves, orient='index').reset_index().sort_values('index')
         df_move = df_move.rename(columns={'index': 'time'})
 
-        return df_move
+        return df_move.copy()
 
     def stop(self, servo):
         print('poniendo todos en HOLD a causa de ', servo)
@@ -129,10 +129,12 @@ class Pattern:
 
     def _run(self, start_home=True, test_mode=False, silent=False, base_shift=0, random_perc=0):
         if start_home:
-            home(self.di)
+            home(self.di, shifted_base=base_shift)
 
         delta = 0  # tiempo antes del siguiente movimiento
         df_moves = self.get_df_moves(random_perc)
+        if base_shift != 0:
+            df_moves = apply_shift(df_moves, base_shift)
 
         # self.t = threading.Thread(target=monitoriza_servos, args=(self.di, self.stop))
         # self.t.start()
@@ -142,23 +144,17 @@ class Pattern:
             row = df_moves.iloc[i, :]
             vel = row.vel
             servo = row.o
+            x = row.pos
             if not silent:
                 print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, servo, row.pos, vel, now()))
 
-            # move
             if test_mode:
                 vel = 30
                 delta = 1.5
             o = self.di[servo]['o']
-            x = varia(row.pos, random_perc)
-            if servo == 'base' and base_shift != 0:
-                x = x + base_shift
-                if x < -1800:
-                    x = -1800
-                if x > 1800:
-                    x = 1800
-            v = varia(vel, random_perc)
-            o.moveTo(x, v)
+
+            # MOVE
+            o.moveTo(x, vel)
 
             # wait sleeping to start new instruction
             if i < (n_moves - 1) and not test_mode:
@@ -578,17 +574,26 @@ def plot_umaps(embedding, dfp_):
         plt.title(v, fontsize=24)
 
 
-def varia(x, p, n=0, min=None, max=None):
+def varia(x, p, n=0, mini=None, maxi=None):
+    """
+varia el valor de x en un porcentaje p, con n decimales. mini y maxi son valores límites de saturación
+    :param x:
+    :param p:
+    :param n:
+    :param mini:
+    :param maxi:
+    :return:
+    """
     if p == 0:
-        r = p
+        r = x
     else:
         lim = x * p / 100
         # print(lim)
         r = round(x + lim * random.uniform(-1, 1), n)
-        if min is not None and r < min:
-            r = min
-        if max is not None and r > max:
-            r = max
+        if mini is not None and r < mini:
+            r = mini
+        if maxi is not None and r > maxi:
+            r = maxi
 
     return r
 
@@ -600,14 +605,14 @@ def varia_pattern(d_mov, p, di=None):
         d = {}
         for k in d_mov:
             t = str(varia(float(k), p, 2))
-            dd = d_mov[k]
+            dd = d_mov[k].copy()
             # limitamos por si hubiera limites (di)
             if di is not None:
                 mini, maxi = di[k]['min'], di[k]['max']
             else:
                 mini, maxi = None, None
-            dd['pos'] = varia(dd['pos'], p, min=mini, max=maxi)
-            dd['vel'] = varia(dd['vel'], p, min=30)
+            dd['pos'] = int(varia(dd['pos'], p, mini=mini, maxi=maxi))
+            dd['vel'] = int(varia(dd['vel'], p, mini=30))
             d[t] = dd
     return d
 
@@ -648,3 +653,20 @@ setType = LSS_SetSession  # para la sesión
         o.setOriginOffset(current_pos, setType)
         current_pos2 = o.getPosition()
         print(k, ' ', current_pos, ' -> ', current_pos2)
+
+
+def shiftea(x, base_shift):
+    x = x + base_shift
+    if x < -1800:
+        x = -1800
+    if x > 1800:
+        x = 1800
+    return x
+
+
+def apply_shift(df_moves, shift):
+    mask = df_moves['o'] == 'base'
+    buf = df_moves[mask].copy()
+    df_moves.loc[mask, 'pos'] = buf['pos'].map(lambda x: shiftea(x, shift))
+
+    return df_moves
