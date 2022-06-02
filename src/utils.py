@@ -141,15 +141,22 @@ class Pattern:
         for i in range(n_moves):
             row = df_moves.iloc[i, :]
             vel = row.vel
+            servo = row.o
             if not silent:
-                print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, row.o, row.pos, vel, now()))
+                print('\n********** {} | {} (->{} vel:{}) | {}'.format(i, servo, row.pos, vel, now()))
 
             # move
             if test_mode:
                 vel = 30
                 delta = 1.5
-            o = self.di[row.o]['o']
+            o = self.di[servo]['o']
             x = varia(row.pos, random_perc)
+            if servo == 'base' and base_shift != 0:
+                x = x + base_shift
+                if x < -1800:
+                    x = -1800
+                if x > 1800:
+                    x = 1800
             v = varia(vel, random_perc)
             o.moveTo(x, v)
 
@@ -346,7 +353,7 @@ def get_di_empty():
             }
 
 
-def init(CST_LSS_Port="COM5"):
+def init(CST_LSS_Port="COM5", go_home=True):
     # Use the app LSS Flowarm that makes automatic scanning
     CST_LSS_Baud = lss_const.LSS_DefaultBaud
     lss.initBus(CST_LSS_Port, CST_LSS_Baud)
@@ -379,7 +386,8 @@ def init(CST_LSS_Port="COM5"):
     di['base']['min'] = -1800
     di['base']['max'] = 1800
 
-    home(di)
+    if go_home:
+        home(di)
     return di, l_base, l_hombro, l_codo, l_muneca, l_mano
 
 
@@ -620,3 +628,23 @@ def test_all_moves(files, di):
     for mo in pats:
         print('\n\n>>>>>>>>>>>>>>>>>>> ', mo.name)
         mo.run(start_home=True, end_home=True)
+
+
+def home_definition(di, setType):
+    """
+usar la posición actual como configuración home (utilizar por ejemplo la app para ponerlo centrado)
+https://wiki.lynxmotion.com/info/wiki/lynxmotion/view/lynxmotion-smart-servo/lss-communication-protocol/#HOriginOffset28O29
+setType = LSS_SetConfig  # para siempre
+setType = LSS_SetSession  # para la sesión
+
+    :param di:
+    :param setType:
+    """
+    print('Ojo que se se aplica dos veces se vuelve a la posión central de fábrica, que este caso hace petar la tenaza')
+    for k in di:
+        o = di[k]['o']
+        current_pos = o.getPosition()
+
+        o.setOriginOffset(current_pos, setType)
+        current_pos2 = o.getPosition()
+        print(k, ' ', current_pos, ' -> ', current_pos2)
