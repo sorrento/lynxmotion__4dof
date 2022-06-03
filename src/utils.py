@@ -406,23 +406,43 @@ class Experimento:
         print(seq)
         self.df = pd.DataFrame()
         self.d_moves_done = {}
+        self.base_shift = 0
+        self.random_perc = 0
+        self.counter = 1
+
+    def set_shift(self, shift):
+        self.base_shift = shift
+
+    def set_random_perc(self, perc):
+        self.random_perc = perc
 
     def run(self):
-        home(self.di)
+        home(self.di, shifted_base=self.base_shift)
         for m in self.r_moves:
+            c = self.counter
             t1 = now(True)
             print(t1, ' doing ', m.name, ' | ', t1)
-            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True)
+            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True,
+                           random_perc=self.random_perc, base_shift=self.base_shift)
             self.d_moves_done[t1] = d_move
 
+            #  Go Home
             time.sleep(1)
             t2 = now(True)
-            home(self.di)
-            df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH']})
+            home(self.di, shifted_base=self.base_shift)
+
+            df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH'], 'i': [c, c]})
 
             self.df = pd.concat([self.df, df2])
+            self.counter = c + 1
 
         home(self.di)
+
+    def run_shifted(self, list_shifts):
+        for s in list_shifts:
+            time.sleep(1)
+            self.set_shift(s)
+            self.run()
 
     def save(self, name, desc, path='data_in/experimentos/'):
         f = '%Y%m%d_%H%M%S'

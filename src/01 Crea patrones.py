@@ -23,81 +23,79 @@ import time
 import pandas as pd
 import lss
 from u_base import get_now_format
-from utils import Pattern, get_variables, plot_time, init, Experimento, home, is_moving, patterns_from_files
+from utils import Pattern, get_variables, plot_time, init, Experimento, home, test_move, move_from_files, resetea_all
 
-di, l_base, l_hombro, l_codo, l_muneca, l_mano = init()
+di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
 
 get_variables(di)
+
+# +
+# recalibración, offset sde fábrica si hace falta
+# home_definition(di, LSS_SetConfig)
 
 # +
 # l_mano.reset() # si se fuerza un servo, se bloquea (modo rojo parpadeante) y se debe resetear                       
 # -
 
-# # 2 Aleatoriamente
+# # 2 Creación de movimientos [Aleatoriamente]
 
 # Movimiento creado aleatoriamente
-pat_a = Pattern(di, 'V')
-pat_a.create_random(n_moves=6, t_max=4)
+patt = Pattern(di, 'tt')
+patt.create_random(n_moves=6, t_max=4)
 
-pat_a._run(test_mode=True, start_home=True)
+patt
 
-pat_a.run(3, start_home=True, end_home=True, intercala_home=True)
+patt._run(test_mode=True, start_home=True)
 
-pat_a.save()
+patt.run(3, start_home=True, end_home=True, intercala_home=True)
 
-# # Cargamos los movimientos y los combinamos en secuencias
+patt.save()
+
+# # 3 Cargamos los movimientos
 
 from u_io import lista_files_recursiva
-
 move_files = lista_files_recursiva('data_in/', 'json')
-move_files
+# move_files
 
+pat = move_from_files(di, move_files, 'B')
 
-def test_move(move, files, di):
-    p = move_from_files(di, files, move)
-    p.run(end_home=False)
-    return p
+# ### a) ejecución normal
 
+res = pat.run()
 
-def move_from_files(di, files, move):
-    pats = patterns_from_files(di, files)
-    return [x for x in pats if x.name == move][0]
+res
 
+# ### b) Con ruido
 
-def test_all_moves(files, di):
-    pats = patterns_from_files(di, files)
-    for mo in pats:
-        print('\n\n>>>>>>>>>>>>>>>>>>> ', mo.name)
-        mo.run(start_home=True, end_home=True)
+res = pat.run(random_perc=10)
 
+res
 
-test_all_moves(move_files, di)
+# ### c) Con shift de base
+
+# +
+# resetea_all(di)
+# -
+
+res = pat.run(base_shift=900)
+
+res
+
+# +
+# test_all_moves(move_files, di)
+# -
 
 # ## Corrección de un movimiento (que golpea la mesa)
 
 m = move_from_files(di, move_files, 'B')
-m.get_df()
+m.get_df_moves()
 
 m.moves['3.14']['pos'] = 400
-m.get_df()
+m.get_df_moves()
 
 m.save()
 
 m = test_move('B', move_files, di)
-
-# # Creación de experimento
-
-exp = Experimento(di, 2, *move_files)
-
-exp.run()
-
-exp.df
-
-exp.save(name='test2', desc='para test')
-
-tx='experimentoe 1'+ '\n' +str([x.name for x in exp.r_moves])
-
-exp.df
 
 # # 8. Test de velocidades
 #
@@ -134,13 +132,13 @@ plot_time(vels, 'speed base, a 100')
 
 plot_time(vels, 'speed base, a 20')
 
-# # 1. Manualmente
+# # Creación Manualmente
 
 pat = Pattern(di, name='test')
 pat.add('base', 0, -400, 100)
 pat.add('codo', 0.5, -400, 10)
 pat.add('codo', 2.9, -600, 100)
-display(pat.get_df())
+display(pat.get_df_moves())
 pat.run(3)
 pat.save()
 
