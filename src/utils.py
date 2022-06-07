@@ -8,92 +8,10 @@ from matplotlib import pyplot as plt
 import lss
 import lss_const
 from lss_const import d_status
-from u_base import now, save_json, read_json, save_df, time_from_str, FORMAT_UTC2, FORMAT_DATETIME, seq_len, nearest
+from u_base import now, save_json, read_json, save_df, time_from_str, FORMAT_UTC2, FORMAT_DATETIME, seq_len, nearest, \
+    time_to_str
 from u_io import escribe_txt
 from u_plots import plot_hist
-
-
-def get_status(myLSS, name="Telemetry", imprime=True):
-    pos = myLSS.getPosition()
-    rpm = myLSS.getSpeedRPM()
-    curr = myLSS.getCurrent()
-    volt = myLSS.getVoltage()
-    temp = myLSS.getTemperature()
-
-    if imprime:
-        print("\nQuerying LSS... ", name)
-        print("\r\n---- %s ----" % name)
-        print("Position  (1/10 deg) = " + str(pos))
-        print("Speed          (rpm) = " + str(rpm))
-        print("Curent          (mA) = " + str(curr))
-        print("Voltage         (mV) = " + str(volt))
-        print("Temperature (1/10 C) = " + str(temp))
-
-    df = pd.DataFrame({'name': [name], 'pos': [pos], 'rpm': [rpm],
-                       'curr': [curr], 'volt': [volt], 'temp': [temp]}).set_index('name')
-    dic = df.to_dict(orient='index')
-
-    return df, dic
-
-
-def update_position(di):
-    pose = []
-    for k in di:
-        #         print(k)
-        o = di[k]['o']
-        try:
-            pos = int(o.getPosition())
-        except Exception as e:
-            pos = -999
-        di[k]['pos'] = pos
-        pose.append(pos)
-
-    print('Position (angles):', pose)
-
-
-def home(di, reset_if_error=True, shifted_base=0):
-    """
-lleva a la posición de origen
-    :param di:
-    :param reset_if_error:
-    :param shifted_base: ángulo por el cual dejaremos la base rotada. (900 = 90 grados clockwise)
-    :return:
-    """
-    if is_at_home(di) and shifted_base == 0:
-        print('ya está en casa')
-        return
-    else:
-        print('Going Home')
-
-    for k in di:
-        o = di[k]['o']
-        status = o.getStatus()
-        if status not in ['1', '6', '3', '4']:
-            if status is None:
-                kk = 'None'
-            else:
-                kk = d_status[int(status)]
-
-            msg = '** WARNING status of <<{}>> is not normal, is {}:{}. Reseteamos el servo '.format(k, status, kk)
-            # print(msg)
-            if reset_if_error:
-                o.resetea_all()
-            raise Exception(msg)
-        if k == 'base':
-            o.moveTo(shifted_base)
-            print('moviendo a home con base shiftada: ', str(round(shifted_base / 10, 1)), ' grados')
-        else:
-            o.moveTo(0)
-    while is_moving(di):
-        time.sleep(0.2)  # para garantizar que se detiene
-    update_position(di)
-
-
-def resetea_all(di):
-    print('***+CUIDADO que el brazo se CAERÁ')
-    time.sleep(2)
-    for k in di:
-        di[k]['o'].reset()
 
 
 class Pattern:
@@ -119,7 +37,7 @@ class Pattern:
         df_move = pd.DataFrame.from_dict(dic_moves, orient='index').reset_index().sort_values('index')
         df_move = df_move.rename(columns={'index': 'time'})
 
-        return df_move.copy()
+        return df_move.copy().reset_index(drop=True)
 
     def stop(self, servo):
         print('poniendo todos en HOLD a causa de ', servo)
@@ -178,8 +96,8 @@ class Pattern:
         executed_mov = {'shift_base':   base_shift,
                         'name':         self.name,
                         'random_perc':  random_perc,
-                        'base_pattern': self.get_df_moves(),
-                        'real_pattern': df_moves}
+                        'base_pattern': self.get_df_moves().to_dict('index'),
+                        'real_pattern': df_moves.to_dict('index')}
 
         return executed_mov
 
@@ -240,6 +158,158 @@ creación de movimientos random
         if verbatim:
             print('Movimiento llamado: {}'.format(self.name))
             display(self.get_df_moves())
+
+
+class Experimento:
+    def __init__(self, di, n, *files):
+        self.di = di
+        moves = patterns_from_files(di, files)
+        self.r_moves = random.choices(moves, k=n)
+        seq = [x.name for x in self.r_moves]
+        print(seq)
+        self.df = pd.DataFrame()
+        self.d_moves_done = {}
+        self.base_shift = 0
+        self.random_perc = 0
+        self.counter = 1
+        self.n = n
+
+    def set_shift(self, shift):
+        self.base_shift = shift
+
+    def set_random_perc(self, perc):
+        self.random_perc = perc
+
+    def run(self):
+        home(self.di, shifted_base=self.base_shift)
+        for m in self.r_moves:
+            c = self.counter
+            t1 = now(True)
+            print('\n ', c, ' / ', self.n, ' doing ', m.name, ' | ', t1)
+            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True,
+                           random_perc=self.random_perc, base_shift=self.base_shift)
+            d_move['start'] = time_to_str(t1, FORMAT_DATETIME)
+            self.d_moves_done[c] = d_move
+
+            #  Go Home
+            time.sleep(1)
+            t2 = now(True)
+            home(self.di, shifted_base=self.base_shift)
+
+            df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH'], 'i': [c, c]})
+
+            self.df = pd.concat([self.df, df2])
+            self.counter = c + 1
+
+        home(self.di)
+
+    def run_shifted(self, list_shifts):
+        for s in list_shifts:
+            time.sleep(1)
+            self.set_shift(s)
+            self.run()
+
+    def save(self, name, desc, path):
+        f = '%Y%m%d_%H%M%S'
+        moves_ = [x.name for x in self.r_moves]
+        le = str(len(moves_))
+        tx = desc + '\n\n' + 'n_moves: ' + le + '\n\n' + str(moves_)
+
+        ini = self.df.time.dt.strftime(f).iloc[0]
+        end = self.df.time.dt.strftime(f).iloc[-1]
+        name2 = ini + '__' + end + '_' + name + '_n' + le
+
+        # df con los movimientos realizados (time - nombre)
+        save_df(self.df, path, name2, append_size=False)
+
+        # descripción del experimento
+        escribe_txt(tx, path + name2 + '.txt')
+
+        # movimientos reales realizados (considerando la variación aleatoria y shift de la base
+        save_json(dic=self.d_moves_done, path=path + name2 + '_real')
+
+
+def get_status(myLSS, name="Telemetry", imprime=True):
+    pos = myLSS.getPosition()
+    rpm = myLSS.getSpeedRPM()
+    curr = myLSS.getCurrent()
+    volt = myLSS.getVoltage()
+    temp = myLSS.getTemperature()
+
+    if imprime:
+        print("\nQuerying LSS... ", name)
+        print("\r\n---- %s ----" % name)
+        print("Position  (1/10 deg) = " + str(pos))
+        print("Speed          (rpm) = " + str(rpm))
+        print("Curent          (mA) = " + str(curr))
+        print("Voltage         (mV) = " + str(volt))
+        print("Temperature (1/10 C) = " + str(temp))
+
+    df = pd.DataFrame({'name': [name], 'pos': [pos], 'rpm': [rpm],
+                       'curr': [curr], 'volt': [volt], 'temp': [temp]}).set_index('name')
+    dic = df.to_dict(orient='index')
+
+    return df, dic
+
+
+def update_position(di):
+    pose = []
+    for k in di:
+        #         print(k)
+        o = di[k]['o']
+        try:
+            pos = int(o.getPosition())
+        except Exception as e:
+            pos = -999
+        di[k]['pos'] = pos
+        pose.append(pos)
+
+    print('Position (angles):', pose)
+
+
+def home(di, reset_if_error=True, shifted_base=0):
+    """
+lleva a la posición de origen
+    :param di:
+    :param reset_if_error:
+    :param shifted_base: ángulo por el cual dejaremos la base rotada. (900 = 90 grados clockwise)
+    :return:
+    """
+    if is_at_home(di) and shifted_base == 0:
+        print('ya está en casa')
+        return
+    else:
+        print('\nGoing Home')
+
+    for k in di:
+        o = di[k]['o']
+        status = o.getStatus()
+        if status not in ['1', '6', '3', '4']:
+            if status is None:
+                kk = 'None'
+            else:
+                kk = d_status[int(status)]
+
+            msg = '** WARNING status of <<{}>> is not normal, is {}:{}. Reseteamos el servo '.format(k, status, kk)
+            # print(msg)
+            if reset_if_error:
+                o.resetea_all()
+            raise Exception(msg)
+        if k == 'base':
+            o.moveTo(shifted_base)
+            print('moviendo a home con base shiftada: ', str(round(shifted_base / 10, 1)), ' grados')
+        else:
+            o.moveTo(0)
+    while is_moving(di):
+        time.sleep(0.2)  # para garantizar que se detiene
+    update_position(di)
+
+
+def resetea_all(di):
+    print('***+CUIDADO que el brazo se CAERÁ')
+    time.sleep(2)
+    for k in di:
+        di[k]['o'].reset()
 
 
 def monitoriza_servos(di, cb):
@@ -395,73 +465,6 @@ def pattern_from_file(di, file):
 
 def patterns_from_files(di, files):
     return [pattern_from_file(di, file) for file in files]
-
-
-class Experimento:
-    def __init__(self, di, n, *files):
-        self.di = di
-        moves = patterns_from_files(di, files)
-        self.r_moves = random.choices(moves, k=n)
-        seq = [x.name for x in self.r_moves]
-        print(seq)
-        self.df = pd.DataFrame()
-        self.d_moves_done = {}
-        self.base_shift = 0
-        self.random_perc = 0
-        self.counter = 1
-
-    def set_shift(self, shift):
-        self.base_shift = shift
-
-    def set_random_perc(self, perc):
-        self.random_perc = perc
-
-    def run(self):
-        home(self.di, shifted_base=self.base_shift)
-        for m in self.r_moves:
-            c = self.counter
-            t1 = now(True)
-            print(t1, ' doing ', m.name, ' | ', t1)
-            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True,
-                           random_perc=self.random_perc, base_shift=self.base_shift)
-            self.d_moves_done[t1] = d_move
-
-            #  Go Home
-            time.sleep(1)
-            t2 = now(True)
-            home(self.di, shifted_base=self.base_shift)
-
-            df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH'], 'i': [c, c]})
-
-            self.df = pd.concat([self.df, df2])
-            self.counter = c + 1
-
-        home(self.di)
-
-    def run_shifted(self, list_shifts):
-        for s in list_shifts:
-            time.sleep(1)
-            self.set_shift(s)
-            self.run()
-
-    def save(self, name, desc, path='data_in/experimentos/'):
-        f = '%Y%m%d_%H%M%S'
-        moves_ = [x.name for x in self.r_moves]
-        le = str(len(moves_))
-        tx = desc + '\n\n' + 'n_moves: ' + le + '\n\n' + str(moves_)
-
-        ini = self.df.time.dt.strftime(f).iloc[0]
-        end = self.df.time.dt.strftime(f).iloc[-1]
-        name2 = name + '_n' + le + '_' + ini + '__' + end
-
-        # df con los movimientos realizados (time - nombre)
-        save_df(self.df, path, 'exp_' + name2, append_size=False)
-
-        # descripción del experimento
-        escribe_txt(tx, path + name2 + '.txt')
-
-        # movimientos reales realizados (considerando la variación aleatoria y shift de la base
-        save_json(self.d_moves_done, path, name2 + '_real' + '.json')
 
 
 def make_query(t0, t1, average=False):
