@@ -13,7 +13,7 @@ import serial
 from ut.base import now
 
 ### Import constants
-import lss_const as lssc
+import ut.lss_const as lssc
 
 
 ### Class functions
