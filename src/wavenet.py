@@ -19,10 +19,9 @@
 # +
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import tensorflow as tf
 
-from u_ml import standardize_function, Classifier
+from ut.ml import standardize_function, Classifier
 from utils import plot_umaps
 # -
 
@@ -119,7 +118,7 @@ l_pred
 l_test=np.argmax(np.mean(y_test, axis=1), axis=1)
 l_test
 
-import u_ml as u
+from ut import ml as u
 
 u.pinta_cm2(l_test, l_pred, ['A', 'B', 'C'])
 

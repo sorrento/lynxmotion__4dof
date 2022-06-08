@@ -19,7 +19,7 @@
 import time
 import pandas as pd
 import lss
-from u_base import get_now_format
+from ut.base import get_now_format
 from utils import Pattern, get_variables, plot_time, init,  Experimento
 
 di, l_base, l_hombro, l_codo, l_muneca, l_mano = init()

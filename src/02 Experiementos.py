@@ -20,7 +20,7 @@
 # %autoreload 2
 
 import lss
-from utils import get_variables, init, Experimento, home
+from utils import get_variables, init, Experimento
 
 di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
 
@@ -28,7 +28,7 @@ get_variables(di)
 
 # # Creación de experimento
 
-from u_io import lista_files_recursiva
+from ut.io import lista_files_recursiva
 move_files = lista_files_recursiva('data_in/', 'json')
 
 # +

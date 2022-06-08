@@ -22,8 +22,8 @@
 import time
 import pandas as pd
 import lss
-from u_base import get_now_format
-from utils import Pattern, get_variables, plot_time, init, Experimento, home, test_move, move_from_files, resetea_all
+from ut.base import get_now_format
+from utils import Pattern, get_variables, plot_time, init, test_move, move_from_files
 
 di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
 
@@ -53,7 +53,7 @@ patt.save()
 
 # # 3 Cargamos los movimientos
 
-from u_io import lista_files_recursiva
+from ut.io import lista_files_recursiva
 move_files = lista_files_recursiva('data_in/', 'json')
 # move_files
 
