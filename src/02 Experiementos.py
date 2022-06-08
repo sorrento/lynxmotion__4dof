@@ -19,8 +19,8 @@
 # %load_ext autoreload
 # %autoreload 2
 
-import lss
-from utils import get_variables, init, Experimento
+from ut import lss
+from ut.roboticArm import Experimento, get_variables, init
 
 di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
 

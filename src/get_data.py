@@ -23,7 +23,8 @@ from influxdb_client import InfluxDBClient
 
 from config import ORG, TOKEN
 from ut.base import FORMAT_DATETIME, FORMAT_UTC, save_df, time_from_str, FORMAT_UTC2
-from utils import make_query, plot_one_var, crea_dataset, plot_one_move_var, to_ticked_time, get_tick
+from utils import make_query, plot_one_var, crea_dataset, plot_one_move_var
+from ut.timeSeries import to_ticked_time, get_tick
 
 # -
 

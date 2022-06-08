@@ -21,9 +21,10 @@
 
 import time
 import pandas as pd
-import lss
+from ut import lss
 from ut.base import get_now_format
-from utils import Pattern, get_variables, plot_time, init, test_move, move_from_files
+from utils import plot_time
+from ut.roboticArm import Pattern, get_variables, init, test_move, move_from_files
 
 di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
 

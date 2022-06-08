@@ -9,11 +9,9 @@
 
 # Import required liraries
 import time
-import serial
 
 # Import LSS library
-import lss
-import lss_const as lssc
+from ut import lss, lss_const as lssc
 
 # Constants
 # CST_LSS_Port = "/dev/ttyUSB0"		# For Linux/Unix platforms
