@@ -18,7 +18,7 @@
 
 import time
 import pandas as pd
-from ut import lss
+import lss
 from ut.base import get_now_format
 from utils import plot_time
 from ut.roboticArm import Pattern, Experimento, get_variables, init
@@ -60,7 +60,7 @@ exp.run()
 
 exp.save(name='test')
 
-exp.df
+exp.df_moves_done
 
 # # 8. Test de velocidades
 #

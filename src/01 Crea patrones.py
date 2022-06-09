@@ -21,10 +21,11 @@
 
 import time
 import pandas as pd
-from ut import lss
+from lss import closeBus
 from ut.base import get_now_format
 from utils import plot_time
-from ut.roboticArm import Pattern, get_variables, init, test_move, move_from_files
+from ut.roboticArm import Pattern, get_variables, init, test_move, move_from_files, test_all_moves
+from ut.io import lista_files_recursiva
 
 di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
 
@@ -54,8 +55,7 @@ patt.save()
 
 # # 3 Cargamos los movimientos
 
-from ut.io import lista_files_recursiva
-move_files = lista_files_recursiva('data_in/', 'json')
+move_files = lista_files_recursiva('data_in/patrones', 'json')
 # move_files
 
 pat = move_from_files(di, move_files, 'B')
@@ -143,6 +143,12 @@ display(pat.get_df_moves())
 pat.run(3)
 pat.save()
 
+# # 8. Verificación de Movimientos seguros
+
+files = lista_files_recursiva('data_in/patrones/', 'json')
+
+test_all_moves(files, di)
+
 # # 9. Liberar el puerto
 
-lss.closeBus()
+closeBus()

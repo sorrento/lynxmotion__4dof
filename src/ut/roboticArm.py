@@ -4,10 +4,11 @@ import time
 import pandas as pd
 from IPython.core.display import display
 
-from ut import lss_const, lss
+import lss_const
+import lss
 from ut.base import now, save_json, read_json, time_to_str, FORMAT_DATETIME, save_df
 from ut.io import escribe_txt
-from ut.lss_const import d_status
+from lss_const import d_status
 
 
 class Pattern:
@@ -47,6 +48,7 @@ class Pattern:
 
         delta = 0  # tiempo antes del siguiente movimiento
         df_moves = self.get_df_moves(random_perc)
+
         if base_shift != 0:
             df_moves = apply_shift(df_moves, base_shift)
 
@@ -95,12 +97,16 @@ class Pattern:
                         'base_pattern': self.get_df_moves().to_dict('index'),
                         'real_pattern': df_moves.to_dict('index')}
 
+        if not silent:
+            display(executed_mov)
+
         return executed_mov
 
     def run(self, n=1, start_home=True, end_home=True, intercala_home=True, silent=False, random_perc=0,
-            base_shift=0):
+            base_shift=0, test_mode=False):
         """
 
+        :param test_mode:
         :param n:
         :param start_home:
         :param end_home:
@@ -117,7 +123,7 @@ class Pattern:
             if not silent:
                 print('\n\n >>>>>>>>>>repeticion: {}/{}'.format(i + 1, n))
             d_moves = self._run(start_home=intercala_home, silent=silent, base_shift=base_shift,
-                                random_perc=random_perc)
+                                random_perc=random_perc, test_mode=test_mode)
             d.update(d_moves)
 
         if end_home:
@@ -158,17 +164,37 @@ creación de movimientos random
 
 class Experimento:
     def __init__(self, di, n, *files):
+        self._reset_vars()
+
         self.di = di
+        self.files = files
         moves = patterns_from_files(di, files)
         self.r_moves = random.choices(moves, k=n)
         seq = [x.name for x in self.r_moves]
         print(seq)
-        self.df = pd.DataFrame()
-        self.d_moves_done = {}
         self.base_shift = 0
         self.random_perc = 0
-        self.counter = 1
         self.n = n
+        self.max_base_shift = 0
+
+    def _reset_vars(self):
+        self.df_moves_done = pd.DataFrame()
+        self.di_moves_done = {}
+        self.counter = 1
+
+    def set_sequence(self, seq):
+        moves = patterns_from_files(self.di, self.files)
+        ll = []
+        for s in seq:
+            moves_red = [m for m in moves if m.name == s]
+            if len(moves_red) != 1:
+                print('problemas para enocontar el mov {}'.format(s))
+            else:
+                ll.append(moves_red[0])
+        self.r_moves = ll
+        seq = [x.name for x in self.r_moves]
+        print('secuencia aceptada:')
+        print(seq)
 
     def set_shift(self, shift):
         self.base_shift = shift
@@ -176,25 +202,26 @@ class Experimento:
     def set_random_perc(self, perc):
         self.random_perc = perc
 
-    def run(self):
+    def run(self, silent=True, test_mode=False):
+        self._reset_vars()
+
         home(self.di, shifted_base=self.base_shift)
         for m in self.r_moves:
             c = self.counter
             t1 = now(True)
             print('\n ', c, ' / ', self.n, ' doing ', m.name, ' | ', t1)
-            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=True,
-                           random_perc=self.random_perc, base_shift=self.base_shift)
+            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=silent,
+                           random_perc=self.random_perc, base_shift=self.base_shift, test_mode=test_mode)
             d_move['start'] = time_to_str(t1, FORMAT_DATETIME)
-            self.d_moves_done[c] = d_move
+            self.di_moves_done[c] = d_move
 
             #  Go Home
             time.sleep(1)
             t2 = now(True)
-            home(self.di, shifted_base=self.base_shift)
-
+            home(self.di, shifted_base=self.base_shift, reset_if_error=False)
             df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH'], 'i': [c, c]})
 
-            self.df = pd.concat([self.df, df2])
+            self.df_moves_done = pd.concat([self.df_moves_done, df2])
             self.counter = c + 1
 
         home(self.di)
@@ -209,20 +236,24 @@ class Experimento:
         f = '%Y%m%d_%H%M%S'
         moves_ = [x.name for x in self.r_moves]
         le = str(len(moves_))
-        tx = desc + '\n\n' + 'n_moves: ' + le + '\n\n' + str(moves_)
+        tx = desc + \
+             '\n\n' + 'n_moves: ' + le + \
+             '\n\n' + 'random_perc: ' + str(self.random_perc) + \
+             '\n\n' + str(moves_)
+        # '\n\n' + 'max_base_shift (deg*10): ' + str(self.max_base_shift) + \
 
-        ini = self.df.time.dt.strftime(f).iloc[0]
-        end = self.df.time.dt.strftime(f).iloc[-1]
+        ini = self.df_moves_done.time.dt.strftime(f).iloc[0]
+        end = self.df_moves_done.time.dt.strftime(f).iloc[-1]
         name2 = ini + '__' + end + '_' + name + '_n' + le
 
         # df con los movimientos realizados (time - nombre)
-        save_df(self.df, path, name2, append_size=False)
+        save_df(self.df_moves_done, path, name2, append_size=False)
 
         # descripción del experimento
         escribe_txt(tx, path + name2 + '.txt')
 
         # movimientos reales realizados (considerando la variación aleatoria y shift de la base
-        save_json(dic=self.d_moves_done, path=path + name2 + '_real')
+        save_json(dic=self.di_moves_done, path=path + name2 + '_real')
 
 
 def get_status(myLSS, name="Telemetry", imprime=True):
@@ -287,10 +318,10 @@ lleva a la posición de origen
                 kk = d_status[int(status)]
 
             msg = '** WARNING status of <<{}>> is not normal, is {}:{}. Reseteamos el servo '.format(k, status, kk)
-            # print(msg)
+            print(msg)
             if reset_if_error:
-                o.resetea_all()
-            raise Exception(msg)
+                o.reset()
+            # raise Exception(msg)
         if k == 'base':
             o.moveTo(shifted_base)
             print('moviendo a home con base shiftada: ', str(round(shifted_base / 10, 1)), ' grados')
@@ -397,12 +428,14 @@ def init(CST_LSS_Port="COM5", go_home=True):
     CST_LSS_Baud = lss_const.LSS_DefaultBaud
     lss.initBus(CST_LSS_Port, CST_LSS_Baud)
 
+    print('Asignando las variables de servos')
     l_base = lss.LSS(1)
     l_hombro = lss.LSS(2)
     l_codo = lss.LSS(3)
     l_muneca = lss.LSS(4)
     l_mano = lss.LSS(5)
 
+    print('Encencidendo las luces')
     l_base.setColorLED(lss_const.LSS_LED_Red)
     l_hombro.setColorLED(lss_const.LSS_LED_Blue)
     l_codo.setColorLED(lss_const.LSS_LED_Green)
@@ -495,10 +528,10 @@ def move_from_files(di, files, move):
 
 
 def test_all_moves(files, di):
-    pats = patterns_from_files(di, files)
+    pats = patterns_from_files(di, sorted(files))
     for mo in pats:
         print('\n\n>>>>>>>>>>>>>>>>>>> ', mo.name)
-        mo.run(start_home=True, end_home=True)
+        mo.run(start_home=True, end_home=True, silent=True)
 
 
 def home_definition(di, setType):

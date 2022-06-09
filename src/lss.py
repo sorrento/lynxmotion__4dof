@@ -13,7 +13,7 @@ import serial
 from ut.base import now
 
 ### Import constants
-import ut.lss_const as lssc
+import lss_const as lssc
 
 
 ### Class functions
@@ -25,11 +25,14 @@ def initBus(portName, portBaud):
         LSS.bus.timeout = 0.1
     except Exception as e:
         print(e)
-        print('Posiblemente el puerto estaba ya abierto')
+        print('Posiblemente el puerto estaba ya abierto. Ver si está abierto en otro notebook')
 
 
 def closeBus():
-    if LSS.bus is not None:
+    if LSS.bus is None:
+        print('No está abierto aquí')
+    else:
+        print('cerrando puerto')
         LSS.bus.close()
         del LSS.bus
 

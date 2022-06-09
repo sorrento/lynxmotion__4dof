@@ -19,32 +19,66 @@
 # %load_ext autoreload
 # %autoreload 2
 
-from ut import lss
-from ut.roboticArm import Experimento, get_variables, init
+from lss import LSS, closeBus
+from ut.roboticArm import Experimento, get_variables, init, home, resetea_all
 
-di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
+di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=False)
+
+# +
+# resetea_all(di)
+# -
+
+home(di)
 
 get_variables(di)
 
 # # Creación de experimento
 
 from ut.io import lista_files_recursiva
-move_files = lista_files_recursiva('data_in/', 'json')
+move_files = lista_files_recursiva('data_in/patrones/', 'json')
 
 # +
 # move_files
 
 # +
+# Para poner el sensor
 # home(di)
-# l_mano.moveTo(-400)  # para poner el sensor
+# l_mano.moveTo(-400)
 # -
 
 exp = Experimento(di, 3, *move_files)
 
+exp.set_sequence(['R', 'M', 'Q'])
+
+# ### a) version normal
+
 exp.run()
 
-exp.save(name='Test_fijo', desc='testing', path='data_med/Experimentos/')
+exp.save(name='test_normal', desc='testing', path='data_med/Experimentos/')
+
+# ### b) version random
+
+get_variables(di)
+
+exp.r_moves[0].get_df_moves()
+
+# +
+# get_variables(di)
+# -
+
+home(di)
+
+exp.set_random_perc(5)
+exp.run(silent=False)
+
+exp.save(name='test_random5', desc='testing randomized', path='data_med/Experimentos/')
+
+# ### c) version shifted
+
+exp.run()
+
+exp.save(name='test_normal', desc='testing', path='data_med/Experimentos/')
 
 # # 9. Liberar el puerto
 
-lss.closeBus()
+closeBus()
