@@ -234,17 +234,11 @@ class Experimento:
 
     def save(self, name, desc, path):
         f = '%Y%m%d_%H%M%S'
-        moves_ = self.get_sequence()
-        le = str(len(moves_))
-        tx = desc + \
-             '\n\n' + 'n_moves: ' + le + \
-             '\n\n' + 'random_perc: ' + str(self.random_perc) + \
-             '\n\n' + str(moves_)
-        # '\n\n' + 'max_base_shift (deg*10): ' + str(self.max_base_shift) + \
+        tx, n_moves = self.describe(desc, imprime=False)
 
         ini = self.df_moves_done.time.dt.strftime(f).iloc[0]
         end = self.df_moves_done.time.dt.strftime(f).iloc[-1]
-        name2 = ini + '__' + end + '_' + name + '_n' + le
+        name2 = ini + '__' + end + '_' + name + '_n' + n_moves
 
         # df con los movimientos realizados (time - nombre)
         save_df(self.df_moves_done, path, name2, append_size=False)
@@ -254,6 +248,19 @@ class Experimento:
 
         # movimientos reales realizados (considerando la variación aleatoria y shift de la base
         save_json(dic=self.di_moves_done, path=path + name2 + '_real')
+
+    def describe(self, desc='', imprime=True):
+        moves_ = self.get_sequence()
+        n_moves = str(len(moves_))
+        tx = desc + \
+             '\n\n' + 'n_moves: ' + n_moves + \
+             '\n\n' + 'random_perc: ' + str(self.random_perc) + \
+             '\n\n' + str(moves_)
+        # '\n\n' + 'max_base_shift (deg*10): ' + str(self.max_base_shift) + \
+        if imprime:
+            print(tx)
+            return None
+        return tx, n_moves
 
 
 def get_status(myLSS, name="Telemetry", imprime=True):
