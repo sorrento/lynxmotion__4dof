@@ -168,14 +168,16 @@ class Experimento:
 
         self.di = di
         self.files = files
-        moves = patterns_from_files(di, files)
-        self.r_moves = random.choices(moves, k=n)
-        seq = [x.name for x in self.r_moves]
-        print(seq)
         self.base_shift = 0
         self.random_perc = 0
         self.n = n
         self.max_base_shift = 0
+        self.r_moves = random.choices(patterns_from_files(di, files), k=n)
+
+        print(self.get_sequence())
+
+    def get_sequence(self):
+        return [x.name for x in self.r_moves]
 
     def _reset_vars(self):
         self.df_moves_done = pd.DataFrame()
@@ -192,9 +194,7 @@ class Experimento:
             else:
                 ll.append(moves_red[0])
         self.r_moves = ll
-        seq = [x.name for x in self.r_moves]
-        print('secuencia aceptada:')
-        print(seq)
+        print('secuencia aceptada:', self.get_sequence())
 
     def set_shift(self, shift):
         self.base_shift = shift
@@ -234,7 +234,7 @@ class Experimento:
 
     def save(self, name, desc, path):
         f = '%Y%m%d_%H%M%S'
-        moves_ = [x.name for x in self.r_moves]
+        moves_ = self.get_sequence()
         le = str(len(moves_))
         tx = desc + \
              '\n\n' + 'n_moves: ' + le + \
