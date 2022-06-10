@@ -78,9 +78,11 @@ class Pattern:
                 delta = float(r_next['time']) - float(row['time'])
 
             if delta > 0:
-                time.sleep(delta)
                 if not silent:
                     print('>>>Waiting ', round(delta, 2))
+                time.sleep(delta)
+                if not silent:
+                    print('>>>Waited ', round(delta, 2))
 
             delta = 0
 
@@ -127,7 +129,7 @@ class Pattern:
             d.update(d_moves)
 
         if end_home:
-            home(self.di, shifted_base=base_shift)
+            home(self.di, shifted_base=base_shift, reset_if_error=False)
 
         return d
 
@@ -324,7 +326,8 @@ lleva a la posición de origen
             else:
                 kk = d_status[int(status)]
 
-            msg = '** WARNING status of <<{}>> is not normal, is {}:{}. Reseteamos el servo '.format(k, status, kk)
+            msg = '** WARNING status of <<{}>> is not normal, is {}:{}. Reseteamos el servo: {}'.format(k, status, kk,
+                                                                                                        reset_if_error)
             print(msg)
             if reset_if_error:
                 o.reset()
@@ -402,7 +405,9 @@ def is_moving(di):
         # print(k, ' vel', v)
         li.append(abs(v))
 
-    return sum(li) > 5
+    is_moving_ = sum(li) > 5
+    print('is_moving ', is_moving_)
+    return is_moving_
 
 
 def is_at_home(di):
