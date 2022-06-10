@@ -10,6 +10,10 @@ from ut.base import now, save_json, read_json, time_to_str, FORMAT_DATETIME, sav
 from ut.io import escribe_txt
 from lss_const import d_status
 
+SEC_MARGIN = 50
+
+RANGE_BASE = 1800
+
 
 class Pattern:
     def __init__(self, di, name='name'):
@@ -174,12 +178,12 @@ class Experimento:
         self.random_perc = 0
         self.n = n
         self.max_base_shift = 0
-        self.r_moves = random.choices(patterns_from_files(di, files), k=n)
+        self.l_patterns = random.choices(patterns_from_files(di, files), k=n)
 
         print(self.get_sequence())
 
     def get_sequence(self):
-        return [x.name for x in self.r_moves]
+        return [x.name for x in self.l_patterns]
 
     def _reset_vars(self):
         self.df_moves_done = pd.DataFrame()
@@ -195,7 +199,7 @@ class Experimento:
                 print('problemas para enocontar el mov {}'.format(s))
             else:
                 ll.append(moves_red[0])
-        self.r_moves = ll
+        self.l_patterns = ll
         print('secuencia aceptada:', self.get_sequence())
 
     def set_shift(self, shift):
@@ -204,35 +208,59 @@ class Experimento:
     def set_random_perc(self, perc):
         self.random_perc = perc
 
-    def run(self, silent=True, test_mode=False):
+    def run(self, silent=True, test_mode=False, range_shifted=0):
         self._reset_vars()
+        bs = self.base_shift
+        rp = self.random_perc
 
-        home(self.di, shifted_base=self.base_shift)
-        for m in self.r_moves:
+        home(self.di, shifted_base=bs)
+        for pat in self.l_patterns:
             c = self.counter
             t1 = now(True)
-            print('\n ', c, ' / ', self.n, ' doing ', m.name, ' | ', t1)
-            d_move = m.run(1, start_home=False, end_home=False, intercala_home=False, silent=silent,
-                           random_perc=self.random_perc, base_shift=self.base_shift, test_mode=test_mode)
+
+            # random shift
+            if range_shifted != 0:
+                pass
+
+            print('\n ', c, ' / ', self.n, ' doing ', pat.name,
+                  ' | rand: ', rp, '% | shift_base: ', str(round(bs / 10, 2)),
+                  'º | ', t1)
+
+            d_move = pat.run(1, start_home=False, end_home=False, intercala_home=False, silent=silent,
+                             random_perc=rp, base_shift=bs, test_mode=test_mode)
             d_move['start'] = time_to_str(t1, FORMAT_DATETIME)
             self.di_moves_done[c] = d_move
 
             #  Go Home
             time.sleep(1)
             t2 = now(True)
-            home(self.di, shifted_base=self.base_shift, reset_if_error=False)
-            df2 = pd.DataFrame({'time': [t1, t2], 'move': [m.name, 'GH'], 'i': [c, c]})
+            home(self.di, shifted_base=bs, reset_if_error=False)
+            df2 = pd.DataFrame({'time': [t1, t2], 'pat': [pat.name, 'GH'], 'i': [c, c], 'shift': [bs, bs],
+                                'rand': [rp, rp]})
 
             self.df_moves_done = pd.concat([self.df_moves_done, df2])
             self.counter = c + 1
 
-        home(self.di)
+        # home(self.di)
 
     def run_shifted(self, list_shifts):
+        """
+repite toda la lista de movimientos para cada valor de shift de la base de la lista
+        :param list_shifts:
+        """
         for s in list_shifts:
             time.sleep(1)
             self.set_shift(s)
             self.run()
+
+    def run_random_shift(self, range_shift):
+        """
+realiza los movimientos con un shif aleatorio dentro del rango
+        """
+        pass
+
+    # todo limitar la configuración del shift sin cambiar la naturaleza del patrón
+    # todo limitar la naturaleza del random
 
     def save(self, name, desc, path):
         f = '%Y%m%d_%H%M%S'
@@ -566,18 +594,33 @@ setType = LSS_SetSession  # para la sesión
         print(k, ' ', current_pos, ' -> ', current_pos2)
 
 
-def shiftea(x, base_shift):
-    x = x + base_shift
-    if x < -1800:
-        x = -1800
-    if x > 1800:
-        x = 1800
-    return x
-
-
 def apply_shift(df_moves, shift):
+    """
+Modifica el df_moves de manerea que los movimientos de la base están shifteados por shift
+Contiene una seguridad para que no se salga se la escala
+    :param df_moves:
+    :param shift:
+    :return:
+    """
     mask = df_moves['o'] == 'base'
     buf = df_moves[mask].copy()
-    df_moves.loc[mask, 'pos'] = buf['pos'].map(lambda x: shiftea(x, shift))
+
+    maxi_applicable = RANGE_BASE - max(buf.pos)
+    mini_applicable = -RANGE_BASE - min(buf.pos)
+
+    msg = 'Demasiado shift, se saldría de la escala con este movimiento. ' \
+          'Aplicaremos el máximo shift%s para este caso:'
+
+    if shift > maxi_applicable:
+        maxi = maxi_applicable - SEC_MARGIN
+        print(msg % ' POSITIVO', maxi)
+        shift = maxi
+
+    if shift < mini_applicable:
+        mini = mini_applicable + SEC_MARGIN
+        print(msg % ' NEGATIVO', mini)
+        shift = mini
+
+    df_moves.loc[mask, 'pos'] = buf['pos'].map(lambda x: x + shift)
 
     return df_moves
