@@ -51,8 +51,11 @@ class Pattern:
             home(self.di, shifted_base=base_shift)
 
         delta = 0  # tiempo antes del siguiente movimiento
+
+        # APLICAMOS EL RANDOM
         df_moves = self.get_df_moves(random_perc)
 
+        # APLICAMOS EL SHIFT
         if base_shift != 0:
             df_moves = apply_shift(df_moves, base_shift)
 
@@ -177,13 +180,23 @@ class Experimento:
         self.base_shift = 0
         self.random_perc = 0
         self.n = n
-        self.max_base_shift = 0
-        self.l_patterns = random.choices(patterns_from_files(di, files), k=n)
+        self._l_patterns = random.choices(patterns_from_files(di, files), k=n)
 
         print(self.get_sequence())
 
     def get_sequence(self):
-        return [x.name for x in self.l_patterns]
+        return [x.name for x in self._l_patterns]
+
+    def get_patterns(self):
+        return self._l_patterns
+
+    def get_patterns_moves_df(self):
+        li = []
+        for pat in self._l_patterns:
+            moves = pat.get_df_moves()
+            li.append(moves)
+            display(moves)
+        return li
 
     def _reset_vars(self):
         self.df_moves_done = pd.DataFrame()
@@ -199,7 +212,7 @@ class Experimento:
                 print('problemas para enocontar el mov {}'.format(s))
             else:
                 ll.append(moves_red[0])
-        self.l_patterns = ll
+        self._l_patterns = ll
         print('secuencia aceptada:', self.get_sequence())
 
     def set_shift(self, shift):
@@ -210,17 +223,22 @@ class Experimento:
 
     def run(self, silent=True, test_mode=False, range_shifted=0):
         self._reset_vars()
+        self.range_shifted = range_shifted
         bs = self.base_shift
         rp = self.random_perc
 
-        home(self.di, shifted_base=bs)
-        for pat in self.l_patterns:
+        for pat in self._l_patterns:
             c = self.counter
             t1 = now(True)
 
             # random shift
             if range_shifted != 0:
-                pass
+                df_moves = pat.get_df_moves()
+                maxi_applicable, mini_applicable, _, _ = range_of_base(df_moves)
+                bs = int(random.uniform(-range_shifted, range_shifted))
+
+            if c == 1:
+                home(self.di, shifted_base=bs)
 
             print('\n ', c, ' / ', self.n, ' doing ', pat.name,
                   ' | rand: ', rp, '% | shift_base: ', str(round(bs / 10, 2)),
@@ -242,25 +260,6 @@ class Experimento:
             self.counter = c + 1
 
         # home(self.di)
-
-    def run_shifted(self, list_shifts):
-        """
-repite toda la lista de movimientos para cada valor de shift de la base de la lista
-        :param list_shifts:
-        """
-        for s in list_shifts:
-            time.sleep(1)
-            self.set_shift(s)
-            self.run()
-
-    def run_random_shift(self, range_shift):
-        """
-realiza los movimientos con un shif aleatorio dentro del rango
-        """
-        pass
-
-    # todo limitar la configuración del shift sin cambiar la naturaleza del patrón
-    # todo limitar la naturaleza del random
 
     def save(self, name, desc, path):
         f = '%Y%m%d_%H%M%S'
@@ -285,8 +284,8 @@ realiza los movimientos con un shif aleatorio dentro del rango
         tx = desc + \
              '\n\n' + 'n_moves: ' + n_moves + \
              '\n\n' + 'random_perc: ' + str(self.random_perc) + \
-             '\n\n' + str(moves_)
-        # '\n\n' + 'max_base_shift (deg*10): ' + str(self.max_base_shift) + \
+             '\n\n' + str(moves_) + \
+             '\n\n' + 'range_base_shift (deg*10): ' + str(self.range_shifted)
         if imprime:
             print(tx)
             return None
@@ -602,11 +601,7 @@ Contiene una seguridad para que no se salga se la escala
     :param shift:
     :return:
     """
-    mask = df_moves['o'] == 'base'
-    buf = df_moves[mask].copy()
-
-    maxi_applicable = RANGE_BASE - max(buf.pos)
-    mini_applicable = -RANGE_BASE - min(buf.pos)
+    maxi_applicable, mini_applicable, buf, mask = range_of_base(df_moves)
 
     msg = 'Demasiado shift, se saldría de la escala con este movimiento. ' \
           'Aplicaremos el máximo shift%s para este caso:'
@@ -621,6 +616,27 @@ Contiene una seguridad para que no se salga se la escala
         print(msg % ' NEGATIVO', mini)
         shift = mini
 
-    df_moves.loc[mask, 'pos'] = buf['pos'].map(lambda x: x + shift)
+    if buf is not None:
+        df_moves.loc[mask, 'pos'] = buf['pos'].map(lambda x: x + shift)
 
     return df_moves
+
+
+def range_of_base(df_moves):
+    """
+devuelve el rango de los máximo y mínimos shifts que se le pueden hacer a la base en este patrón
+    :param df_moves:
+    :return:
+    """
+    mask = df_moves['o'] == 'base'
+    buf = df_moves[mask].copy()
+
+    if len(buf) == 0:
+        maxi_applicable = RANGE_BASE - SEC_MARGIN
+        mini_applicable = -RANGE_BASE - SEC_MARGIN
+        buf = None
+    else:
+        maxi_applicable = RANGE_BASE - max(buf.pos)
+        mini_applicable = -RANGE_BASE - min(buf.pos)
+
+    return maxi_applicable, mini_applicable, buf, mask
