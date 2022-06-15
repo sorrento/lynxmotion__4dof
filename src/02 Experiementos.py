@@ -13,24 +13,23 @@
 #     name: python3
 # ---
 
-# Creamos patrones de movimiento de manera aleatoria y los almacenamos
-#
+# Realizamos secuecuencias de los patrones básicos (Un experimento
 
 # %load_ext autoreload
 # %autoreload 2
 
 from lss import LSS, closeBus
-from ut.roboticArm import Experimento, get_variables, init, home, resetea_all
+from ut.roboticArm import Experimento, get_variables, init, home, resetea_all, apply_shift, range_of_base
 
-di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=False)
+di, l_base, l_hombro, l_codo, l_muneca, l_mano = init(go_home=True)
 
 # +
 # resetea_all(di)
 # -
 
-home(di)
-
 get_variables(di)
+
+l_base.moveTo(00)
 
 # # Creación de experimento
 
@@ -39,45 +38,65 @@ move_files = lista_files_recursiva('data_in/patrones/', 'json')
 
 # +
 # move_files
-
-# +
-# Para poner el sensor
-# home(di)
-# l_mano.moveTo(-400)
 # -
 
-exp = Experimento(di, 3, *move_files)
+# vamos a seleccionar 8 de estos
+import random
+move_files=random.sample(move_files,8)
+move_files
 
-exp.set_sequence(['R', 'M', 'Q'])
+exp = Experimento(di, 100, *move_files)
+
+exp.get_patterns_used()
+
+exp.get_sequence()
+
+home(di)
+
+# # PONER EL SENSOR
+# 1. encenderlo (no se enciende luz) y amarrarlo
+# 2. encender influxdb: ejecutable en `c:\Program Files\InfluxData\influxdb\influxdb2-2.1.1-windows-amd64\`
+# 3. ejecutar el `/uart.py`. Se puede pinchar desde TotalCommander. pero si falla se borra. Mejor con Anaconda. O desde pycharm (ojo que parace que con python 3.8 se detiene después de un rato, mejor usar 3.9 
+# 4. encender grafana  http://localhost:3000/ si se quere ver cómo va
+#
+
+# Para poner el sensor
+home(di)
+l_mano.moveTo(-400)
+# l_codo.moveTo(-800)
 
 # ### a) version normal
 
 exp.run()
 
-exp.save(name='test_normal', desc='testing', path='data_med/Experimentos/')
+exp.save(name='Normal_10_pats_4', desc='No se paró, se ajustaron los tornillos para que no oscile',
+         path='data_med/Experimentos/')
 
 # ### b) version random
 
-get_variables(di)
+exp.set_random_perc(10)
+exp.run(silent=True)
 
-exp.r_moves[0].get_df_moves()
-
-# +
-# get_variables(di)
-# -
-
-home(di)
-
-exp.set_random_perc(5)
-exp.run(silent=False)
-
-exp.save(name='test_random5', desc='testing randomized', path='data_med/Experimentos/')
+exp.save(name='Random_10_b', desc='Usando 10 moves base, con 10% de random',
+         path='data_med/Experimentos/')
 
 # ### c) version shifted
 
-exp.run()
+exp.set_random_perc(0)
+exp.describe()
 
-exp.save(name='test_normal', desc='testing', path='data_med/Experimentos/')
+exp.run(range_shifted=900, silent=True)
+
+exp.save(name='shifted_90_c', desc='shifted 90, sin random', 
+         path='data_med/Experimentos/')
+
+# ## REGENERA
+
+exp.get_patterns_used()
+
+exp.regenerate_sequence(10)
+
+exp.get_sequence()
 
 # # 9. Liberar el puerto
 

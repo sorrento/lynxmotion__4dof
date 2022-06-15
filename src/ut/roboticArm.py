@@ -179,9 +179,12 @@ class Experimento:
         self.base_shift = 0
         self.random_perc = 0
         self.n = n
-        self._l_patterns = random.choices(patterns_from_files(di, files), k=n)
+        self._l_patterns = self._random_seq_of_pats(n)
 
         print(self.get_sequence())
+
+    def _random_seq_of_pats(self, n):
+        return random.choices(patterns_from_files(self.di, self.files), k=n)
 
     def get_sequence(self):
         return [x.name for x in self._l_patterns]
@@ -222,6 +225,17 @@ class Experimento:
 
     def set_random_perc(self, perc):
         self.random_perc = perc
+
+    def regenerate_sequence(self, n):
+        """
+regenera la secuencia de movimientos, de largo n, usando los mismos patrones que definieron
+el Experimento
+        :param n:
+        """
+        pats = self._random_seq_of_pats(n)
+        self._l_patterns = pats
+        seq = self.get_sequence()
+        print('nueva:', seq)
 
     def run(self, silent=True, test_mode=False, range_shifted=0):
         self._reset_vars()
