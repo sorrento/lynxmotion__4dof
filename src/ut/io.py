@@ -20,6 +20,7 @@ def lista_files_recursiva(path, ext, with_path=True, drop_extension=False):
     """
 devuelve la lista de archivos en la ruta, recursivamente, de la extensión especificada. la lista está ordenada por fecha
 de modificación
+    :param drop_extension:
     :param remove_extension:
     :param with_path:
     :param path:
@@ -33,7 +34,7 @@ de modificación
     if not with_path:
         lista = [get_filename(x) for x in lista]
 
-    if not drop_extension:
+    if drop_extension:
         lista = [remove_extension(x) for x in lista]
 
     return lista
