@@ -38,17 +38,17 @@ df = pd.read_csv(npath + 'exp1.csv')
 df
 
 # dataset horizontal y completar nan con interpolación
-dfa = df.groupby(['i', 'tt', 'move', '_field']).agg('_value').mean().reset_index()
-dfp = dfa.pivot(index=['i', 'tt', 'move'], columns=['_field'], values='_value').reset_index()
+dfa = df.groupby(['i', 'tt', 'pat', '_field']).agg('_value').mean().reset_index()
+dfp = dfa.pivot(index=['i', 'tt', 'pat'], columns=['_field'], values='_value').reset_index()
 dfp1 = dfp.groupby(['i']).apply(lambda group: group.interpolate())
 dfp1 = dfp1.fillna(0)
-dfp1['class'] = dfp1.move.astype('category').cat.codes
+dfp1['class'] = dfp1.pat.astype('category').cat.codes
 dfp1
 
 # # 1. UMAP 
 
 import umap
-features = list(set(dfp1.columns) - {'_field', 'i', 'tt', 'move', 'class'})
+features = list(set(dfp1.columns) - {'_field', 'i', 'tt', 'pat', 'class'})
 datas = standardize_function(dfp1[features])
 datas
 

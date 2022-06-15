@@ -71,7 +71,7 @@ def prepare_one(j, dt, df, limits_str):
 
     b = dt[(dt.time >= t0) & (dt.time < t1)].copy()
     b['i'] = i
-    b['move'] = df.loc[i].move
+    b['pat'] = df.loc[i].pat
     # columna de tiempo absoluto en ms
     t_ref = time_from_str(b.iloc[0].time, FORMAT_UTC2)
     b['t'] = b['time'].map(lambda x: round((time_from_str(x, FORMAT_UTC2) - t_ref).total_seconds() * 1000))
@@ -91,8 +91,8 @@ def ut(t, local=True):
 
 
 def crea_dataset(dt, df):
-    l = False  # todo ponerlo en false si ya escribimos el fichero de movimientos con hora utc
-    limits = [ut(datetime.strptime(t, FORMAT_DATETIME), local=l) for t in df.time]
+    l = False  # ponerlo en false si ya escribimos el fichero de movimientos con hora utc
+    limits = [ut(datetime.strptime(t, FORMAT_UTC2), local=l) for t in df.time]
     limits.append(limits[-1] + timedelta(seconds=5))
     limits_str = [t.strftime(FORMAT_UTC2) for t in limits]
 
@@ -108,7 +108,7 @@ def plot_one_move_var(tot, var, mov, fa=1):
     # var = 'a0'
     # mov = 'C'
     import matplotlib.pyplot as plt
-    f = tot[(tot.move == mov) & (tot.varible == var)]
+    f = tot[(tot.pat == mov) & (tot.varible == var)]
 
     pi = pd.pivot(f, columns='i', values='value', index='t').reset_index()
     cols = pi.columns.to_list()[1:]
