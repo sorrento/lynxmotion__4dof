@@ -1,8 +1,12 @@
 from datetime import timedelta, datetime
 import pandas as pd
+from influxdb_client import InfluxDBClient
 from matplotlib import pyplot as plt
 
-from ut.base import time_from_str, FORMAT_UTC2, FORMAT_DATETIME
+from config import TOKEN, ORG
+from ut.base import time_from_str, FORMAT_UTC2, FORMAT_UTC, save_df
+from ut.io import lista_files_recursiva
+from ut.timeSeries import to_ticked_time, get_tick
 
 
 def plot_time(vels, title):
@@ -64,14 +68,14 @@ def plot_one_var(dt, var):
     plt.plot(f.time, f.value, lw=1)
 
 
-def prepare_one(j, dt, df, limits_str):
-    i = j + 1
-    t0, t1 = limits_str[j], limits_str[j + 1]
-    print('Movimiento i:{}, entre tiempos {} | {}'.format(i, t0, t1))
-
+def prepare_one(j, dt, df, verbose=True):
+    row = df.loc[j]
+    t0 = row.time
+    t1 = row.time_end
+    if verbose:
+        print('Movimiento j:{}, entre tiempos {} | {}'.format(j, t0, t1))
     b = dt[(dt.time >= t0) & (dt.time < t1)].copy()
-    b['i'] = i
-    b['pat'] = df.loc[i].pat
+    b['pat'] = row.pat
     # columna de tiempo absoluto en ms
     t_ref = time_from_str(b.iloc[0].time, FORMAT_UTC2)
     b['t'] = b['time'].map(lambda x: round((time_from_str(x, FORMAT_UTC2) - t_ref).total_seconds() * 1000))
@@ -90,15 +94,15 @@ def ut(t, local=True):
     return t0
 
 
-def crea_dataset(dt, df):
-    l = False  # ponerlo en false si ya escribimos el fichero de movimientos con hora utc
-    limits = [ut(datetime.strptime(t, FORMAT_UTC2), local=l) for t in df.time]
-    limits.append(limits[-1] + timedelta(seconds=5))
-    limits_str = [t.strftime(FORMAT_UTC2) for t in limits]
+def crea_dataset(dt, df, verbose=False):
+    # l = False  # ponerlo en false si ya escribimos el fichero de movimientos con hora utc
+    # limits = [ut(datetime.strptime(t, FORMAT_UTC2), local=l) for t in df.time]
+    # limits.append(limits[-1] + timedelta(seconds=5))
+    # limits_str = [t.strftime(FORMAT_UTC2) for t in limits]
 
     tot = pd.DataFrame()
-    for j in range(len(df)):
-        b = prepare_one(j, dt, df, limits_str)
+    for j in df.index:
+        b = prepare_one(j, dt, df, verbose)
         tot = pd.concat([tot, b])
 
     return tot
@@ -136,3 +140,62 @@ def plot_umaps(embedding, dfp_):
         plt.title(v, fontsize=24)
 
 
+def lee_influx(t0, t1):
+    client = InfluxDBClient(url="http://localhost:8086", token=TOKEN, org=ORG)
+    query_api = client.query_api()
+
+    # Pedimos los datos correspondientes a la ventana temporal
+    q = make_query(t0.strftime(FORMAT_UTC), t1.strftime(FORMAT_UTC))
+    dataframe = query_api.query_data_frame(q)
+    dt = dataframe[['_field', '_value', '_time']].rename(
+        columns={'_field': 'variable', '_time': 'time', '_value': 'value'})
+
+    return dt
+
+
+def procesa_all(verbose=False):
+    names = lista_files_recursiva('data_med/Experimentos/', 'json',
+                                  with_path=False, drop_extension=True, recursiv=False)
+    names = [x.replace('_real', '') for x in names]
+    for name in names:
+        process_one(name, verbose)
+
+
+def process_one(base, verbose=False):
+    print('\n*************** PROCESANDO:', base)
+
+    # 1 Dataset de mov del BRAZO
+    csv = 'data_med/Experimentos/' + base + '.csv'
+    df = pd.read_csv(csv)
+    df['time_end'] = df.time.shift(-1)
+    df = df[df.pat != 'GH'].set_index('i')
+
+    # 2 Dataset de series temporales del SENSOR
+    t0 = datetime.strptime(df.time.iloc[0], FORMAT_UTC2)
+    t1 = datetime.strptime(df.time.iloc[-1], FORMAT_UTC2)
+    t1 = t1 + timedelta(seconds=2)  # sumamos 2 para captar el último movimiento
+
+    dt = lee_influx(t0, t1)
+    path_time = save_df(dt, 'data_med/Experimentos/time', base, append_size=False)
+    dt = pd.read_csv(path_time)
+
+    # 3 Combianación de ambos datasets
+    tot = crea_dataset(dt, df, verbose)
+
+    # agregamos la variable tt con tiempos en ticks
+    times = [time_from_str(x, FORMAT_UTC2) for x in dt.time.unique()]
+    tic = get_tick(times, plotea=False, verbose=False)
+
+    if tic != 90:
+        print('tic no es 90: ', tic)
+        if abs(tic - 90) > 5:
+            print('**ES Grave en ', base)
+            tic = get_tick(times, plotea=True)
+            tic = None
+        else:
+            tic = 90
+
+    tot['tt'] = tot['t'].map(
+        lambda x: to_ticked_time(x, tic))  # todo: es posible que haya agujeros (ticks sin valor en alguna var)
+
+    save_df(tot, path='data_out', name=base, append_size=False)

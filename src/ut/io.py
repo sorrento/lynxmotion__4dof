@@ -16,19 +16,23 @@ def getctime(filename):
     return os.stat(filename).st_ctime
 
 
-def lista_files_recursiva(path, ext, with_path=True, drop_extension=False):
+def lista_files_recursiva(path, ext, with_path=True, drop_extension=False, recursiv=True):
     """
 devuelve la lista de archivos en la ruta, recursivamente, de la extensión especificada. la lista está ordenada por fecha
 de modificación
     :param drop_extension:
-    :param remove_extension:
     :param with_path:
     :param path:
     :param ext:
     :return:
     """
     import glob
-    lista = glob.glob(path + '**/*.' + ext, recursive=True)
+
+    if recursiv:
+        lista = glob.glob(path + '**/*.' + ext, recursive=recursiv)
+    else:
+        lista = glob.glob(path + '/*.' + ext, recursive=recursiv)
+
     lista = sorted(lista, key=getmtime, reverse=True)
 
     if not with_path:
