@@ -10,8 +10,7 @@ from ut.base import now, save_json, read_json, time_to_str, FORMAT_DATETIME, sav
 from ut.io import escribe_txt
 from lss_const import d_status
 
-SEC_MARGIN = 50
-
+SEC_MARGIN = 100  # cuantas decimas de grado se dejan como maergen para no usar el límite del servo
 RANGE_BASE = 1800
 
 
@@ -198,6 +197,9 @@ class Experimento:
             display(moves)
         return li
 
+    def get_patterns_used(self):
+        return sorted(list(set(self.get_sequence())))
+
     def _reset_vars(self):
         self.df_moves_done = pd.DataFrame()
         self.di_moves_done = {}
@@ -363,7 +365,8 @@ lleva a la posición de origen
             o.moveTo(shifted_base)
             print('moviendo a home con base shiftada: ', str(round(shifted_base / 10, 1)), ' grados')
         else:
-            o.moveTo(0)
+            o.moveTo(0, vel=70)  # si no limintamos la velocidad, a veces es muy brusco y
+            # afloja los tornillos del brazo
     while is_moving(di):
         time.sleep(0.2)  # para garantizar que se detiene
     update_position(di)
@@ -433,7 +436,7 @@ def is_moving(di):
         li.append(abs(v))
 
     is_moving_ = sum(li) > 5
-    print('is_moving ', is_moving_)
+    # print('is_moving ', is_moving_)
     return is_moving_
 
 
