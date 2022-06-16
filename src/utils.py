@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from config import TOKEN, ORG
 from ut.base import time_from_str, FORMAT_UTC2, FORMAT_UTC, save_df
-from ut.io import lista_files_recursiva
+from ut.io import lista_files_recursiva, get_filename
 from ut.timeSeries import to_ticked_time, get_tick
 
 
@@ -76,6 +76,7 @@ def prepare_one(j, dt, df, verbose=True):
         print('Movimiento j:{}, entre tiempos {} | {}'.format(j, t0, t1))
     b = dt[(dt.time >= t0) & (dt.time < t1)].copy()
     b['pat'] = row.pat
+    b['i'] = j
     # columna de tiempo absoluto en ms
     t_ref = time_from_str(b.iloc[0].time, FORMAT_UTC2)
     b['t'] = b['time'].map(lambda x: round((time_from_str(x, FORMAT_UTC2) - t_ref).total_seconds() * 1000))
@@ -154,6 +155,10 @@ def lee_influx(t0, t1):
 
 
 def procesa_all(verbose=False):
+    """
+genera un dataset para cada fichero en data_med y los almacena
+    :param verbose:
+    """
     names = lista_files_recursiva('data_med/Experimentos/', 'json',
                                   with_path=False, drop_extension=True, recursiv=False)
     names = [x.replace('_real', '') for x in names]
@@ -171,12 +176,16 @@ def process_one(base, verbose=False):
     df = df[df.pat != 'GH'].set_index('i')
 
     # 2 Dataset de series temporales del SENSOR
-    t0 = datetime.strptime(df.time.iloc[0], FORMAT_UTC2)
-    t1 = datetime.strptime(df.time.iloc[-1], FORMAT_UTC2)
-    t1 = t1 + timedelta(seconds=2)  # sumamos 2 para captar el último movimiento
+    import os
+    path_time = 'data_med/Experimentos/time/' + base + '.csv'
+    existe = os.path.exists(path_time)
+    if not existe:
+        t0 = datetime.strptime(df.time.iloc[0], FORMAT_UTC2)
+        t1 = datetime.strptime(df.time.iloc[-1], FORMAT_UTC2)
+        t1 = t1 + timedelta(seconds=2)  # sumamos 2 para captar el último movimiento
 
-    dt = lee_influx(t0, t1)
-    path_time = save_df(dt, 'data_med/Experimentos/time', base, append_size=False)
+        dt = lee_influx(t0, t1)
+        path_time = save_df(dt, 'data_med/Experimentos/time', base, append_size=False)
     dt = pd.read_csv(path_time)
 
     # 3 Combianación de ambos datasets
@@ -199,3 +208,17 @@ def process_one(base, verbose=False):
         lambda x: to_ticked_time(x, tic))  # todo: es posible que haya agujeros (ticks sin valor en alguna var)
 
     save_df(tot, path='data_out', name=base, append_size=False)
+
+
+def une_datasets():
+    def procesa(file):
+        df = pd.read_csv(file)
+        df = df.drop(columns=['t', 'time'])
+        df['exp'] = get_filename(file, remove_ext=True)
+        return df
+
+    files = lista_files_recursiva('data_out/', 'csv', recursiv=False)
+    df_all = pd.concat([procesa(x) for x in files]).reset_index(drop=True)
+
+    save_df(df_all, 'data_out/all', 'all', append_size=False)
+    return df_all

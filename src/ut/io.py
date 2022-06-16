@@ -59,13 +59,17 @@ entrega la fecha de modificación de un archivo como un número yyyymmdd
     return int(dt.strftime('%Y%m%d'))
 
 
-def get_filename(path):
+def get_filename(path, remove_ext=False):
     """
 obtiene el nombre del fichero desde el path completo
+    :param remove_ext: quitar la extension
     :param path:
     :return:
     """
-    return os.path.basename(path)
+    file = os.path.basename(path)
+    if remove_ext:
+        file = remove_extension(file)
+    return file
 
 
 def escribe_txt(txt, file_path):
