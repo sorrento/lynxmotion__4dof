@@ -4,7 +4,7 @@ from influxdb_client import InfluxDBClient
 from matplotlib import pyplot as plt
 
 from config import TOKEN, ORG
-from ut.base import time_from_str, FORMAT_UTC2, FORMAT_UTC, save_df
+from ut.base import time_from_str, FORMAT_UTC2, FORMAT_UTC, save_df, read_json
 from ut.io import lista_files_recursiva, get_filename
 from ut.timeSeries import to_ticked_time, get_tick
 
@@ -75,6 +75,9 @@ def prepare_one(j, dt, df, verbose=True):
     if verbose:
         print('Movimiento j:{}, entre tiempos {} | {}'.format(j, t0, t1))
     b = dt[(dt.time >= t0) & (dt.time < t1)].copy()
+    if len(b) == 0:
+        print('no hay datos de sensor para el movimiento {}'.format(j))
+        return None
     b['pat'] = row.pat
     b['i'] = j
     # columna de tiempo absoluto en ms
@@ -104,7 +107,8 @@ def crea_dataset(dt, df, verbose=False):
     tot = pd.DataFrame()
     for j in df.index:
         b = prepare_one(j, dt, df, verbose)
-        tot = pd.concat([tot, b])
+        if b is not None:
+            tot = pd.concat([tot, b])
 
     return tot
 
@@ -162,6 +166,7 @@ genera un dataset para cada fichero en data_med y los almacena
     names = lista_files_recursiva('data_med/Experimentos/', 'json',
                                   with_path=False, drop_extension=True, recursiv=False)
     names = [x.replace('_real', '') for x in names]
+    print(names, '\n\n')
     for name in names:
         process_one(name, verbose)
 
@@ -217,8 +222,20 @@ def une_datasets():
         df['exp'] = get_filename(file, remove_ext=True)
         return df
 
-    files = lista_files_recursiva('data_out/', 'csv', recursiv=False)
-    df_all = pd.concat([procesa(x) for x in files]).reset_index(drop=True)
+    def one_json(base):
+        j = read_json('data_med/Experimentos/' + base + '_real.json')
+        desc = pd.DataFrame.from_dict(j, orient='index').reset_index().rename(columns={'index': 'i'})
+        desc['exp'] = base
+        return desc
 
+    files = lista_files_recursiva('data_out/', 'csv', recursiv=False)
+
+    # DATASET UNIDO
+    df_all = pd.concat([procesa(x) for x in files]).reset_index(drop=True)
     save_df(df_all, 'data_out/all', 'all', append_size=False)
-    return df_all
+
+    # DATASET DE DESCRIPCION (UNA FILA POR MOVIMIENTO)
+    df_desc = pd.concat([one_json(get_filename(x, True)) for x in files])
+    save_df(df_desc, 'data_out/all', 'all_desc', append_size=False)
+
+    return df_all, df_desc
