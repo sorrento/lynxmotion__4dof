@@ -243,3 +243,59 @@ def une_datasets():
     save_df(df_desc, 'data_out/all', 'all_desc', append_size=False)
 
     return df_all, df_desc
+
+
+def crea_ventanas_one(df, width):
+    """
+Crea un dataset de mayor tamaño cogiendo width filas. El dataset final tiene la columna 'wi' con el número de la ventana
+y 'frame' con el número secuencial del frame dentro de la ventana
+IMPORTANTE: El df tiene que estar ORDENADO
+    :param df:
+    :param width:
+    :return:
+    """
+    li = []
+    n_wi = len(df) - width + 1
+    print('  ..creando {} ventanas {} frames'.format(n_wi, width))
+
+    for i_wi in range(n_wi):
+        x = df[i_wi:i_wi + width].copy()
+        x['wi'] = i_wi + 1
+        x['frame'] = range(1, len(x) + 1)
+        li.append(x)
+
+    return pd.concat(li)
+
+
+def crea_ventanas_all(df, ind, width):
+    """
+Crea un dataset realizando tomando subset de ventanas móviles dentro de cada subgrupo definido por la columna 'ind'.
+El dataset final tiene la columna ind+'_wi' con el indicador de subset y número de la ventana
+y 'frame' con el número secuencial del frame dentro de la ventana.
+Si se elige un tamaño de ventana mayor que el  menor largo de subsets (definidos por ind) se reajusta automáticamente.
+IMPORTANTE: El df tiene que estar ORDENADO
+    :param df:
+    :param ind: Nombre de la columna que determina cada sub dataset
+    :param width: ancho de la ventana
+    :return:
+    """
+    maxi = df.groupby(ind).count().iloc[:, 0].min()
+    if width > maxi:
+        print(
+            'El ancho de la ventana ({}) es mayor que la menor secuencia ({}). Se redefine la ventana como w={}'.format(
+                width, maxi, maxi))
+        width = maxi
+
+    nam = ind + '_wi'
+    print('Creamos la variable de id: {}\n'.format(nam))
+    moves = df[ind].unique()
+    li = []
+    for i_move in moves:
+        print('movimiento: ', i_move)
+        buf = df[df[ind] == i_move].copy()
+        x = crea_ventanas_one(buf, width)
+        x[nam] = x[ind].astype(str) + '_' + x['wi'].astype(str)
+        x.drop(columns='wi', inplace=True)
+        li.append(x)
+
+    return pd.concat(li)
