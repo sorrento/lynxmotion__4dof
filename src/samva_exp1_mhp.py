@@ -30,6 +30,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras import losses, models, optimizers
 
 import tensorflow as tf
+from sklearn.preprocessing import StandardScaler,MinMaxScaler
 
 from utils import crea_ventanas_all
 # -
@@ -119,29 +120,35 @@ buf.shape
 target = buf.reshape((-1, w, 3))  # esto es un corta churros
 target.shape
 
-# ### b) data
+# ### b) reshape data
 
 features=set(dfp2.columns)-{'class', 'frame', 'i_wi'}
 
 data = np.asarray(dfp2[features]).reshape((-1, w, 12))
 data.shape
 
-# +
-datas = data.reshape((data.shape[0], -1))
-datas = standardize(datas, 1)
-ts = np.argmax(np.mean(target, axis=1), axis=1)
-
-embedding = reducer.fit_transform(datas)
-plt.figure(figsize=(20, 20))
-
-plt.scatter(
-    embedding[:, 0],
-    embedding[:, 1],
-    s=20, c=ts, alpha=1)
-plt.gca().set_aspect('equal', 'datalim')
-plt.title(v, fontsize=24)
+# # Otra vez embedding...
 
 # +
+# datas = data.reshape((data.shape[0], -1))
+# datas = standardize(datas, 1)
+# ts = np.argmax(np.mean(target, axis=1), axis=1)
+
+# embedding = reducer.fit_transform(datas)
+# plt.figure(figsize=(20, 20))
+
+# plt.scatter(
+#     embedding[:, 0],
+#     embedding[:, 1],
+#     s=20, c=ts, alpha=1)
+# plt.gca().set_aspect('equal', 'datalim')
+# plt.title(v, fontsize=24)
+# -
+
+# # ...Volvemos a entrenamiento
+
+# +
+#puntos para separar train, validación y test
 it1 = data.shape[0] // 3 * 2
 it2 = it1 + data.shape[0] // 6
 
@@ -219,6 +226,8 @@ np.argmax(np.mean(y_test, axis=1), axis=1)
 
 plt.figure(figsize=(20, 10))
 plt.plot(preds_test.reshape(-1, 3))
+
+# # Venga con los embeddings de los...
 
 # +
 datas = data.reshape((data.shape[0], -1))
