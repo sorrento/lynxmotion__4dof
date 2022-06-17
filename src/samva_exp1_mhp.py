@@ -121,9 +121,7 @@ target.shape
 
 # ### b) data
 
-dfp2.columns
-
-dfp2[features]
+features=set(dfp2.columns)-{'class', 'frame', 'i_wi'}
 
 data = np.asarray(dfp2[features]).reshape((-1, w, 12))
 data.shape
