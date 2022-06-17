@@ -92,9 +92,10 @@ class Pattern:
 
             delta = 0
 
-        # espera a estar quieto para situiente instrucción
-        while is_moving(self.di):
-            time.sleep(0.1)
+        # espera a estar quieto para siguiente instrucción
+        # while is_moving(self.di):
+        #     time.sleep(0.1)
+        time.sleep(1)  # el is_moving depende de que respondan los servos y esto puede ocasionar tiempos muy variables
 
         if not silent:
             print('ya está quieto; ha terminado')

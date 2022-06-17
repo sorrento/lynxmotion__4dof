@@ -178,3 +178,8 @@ da la (primera) posición del elemento más pequeño
     """
     mi = min(lista)
     return lista.index(mi)
+
+
+def json_from_string(s):
+    import json
+    return json.loads(s.replace("'", "\""))
