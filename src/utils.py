@@ -113,13 +113,13 @@ def crea_dataset(dt, df, verbose=False):
     return tot
 
 
-def plot_one_move_var(tot, var, mov, fa=1):
+def plot_one_move_var(df, var, mov, fa=1):
     # var = 'a0'
     # mov = 'C'
     import matplotlib.pyplot as plt
-    f = tot[(tot.pat == mov) & (tot.varible == var)]
+    f = df[(df.pat == mov) & (df.variable == var)]
 
-    pi = pd.pivot(f, columns='i', values='value', index='t').reset_index()
+    pi = pd.pivot(f, columns='j', values='value', index='tt').reset_index()
     cols = pi.columns.to_list()[1:]
 
     plt.figure(figsize=(12 / fa, 10 / fa))
@@ -130,7 +130,7 @@ def plot_one_move_var(tot, var, mov, fa=1):
 
     for co in cols:
         mask = ~ pi[co].isna()
-        plt.plot(pi['t'][mask], pi[co][mask], label='Line ' + str(co), lw=1)
+        plt.plot(pi['tt'][mask], pi[co][mask], label='Line ' + str(co), lw=1)
 
 
 def plot_umaps(embedding, dfp_):
@@ -210,7 +210,11 @@ def process_one(base, verbose=False):
             tic = 90
 
     tot['tt'] = tot['t'].map(
-        lambda x: to_ticked_time(x, tic))  # todo: es posible que haya agujeros (ticks sin valor en alguna var)
+        lambda x: to_ticked_time(x, tic))  # es posible que haya agujeros (ticks sin valor en alguna var)
+
+    # algunos caerán en el mismo tick, dejamos sólo uno:
+    sub = list(set(tot.columns) - {'value', 't', 'time'})
+    tot = tot.drop_duplicates(subset=sub, keep='first')
 
     save_df(tot, path='data_out', name=base, append_size=False)
 
